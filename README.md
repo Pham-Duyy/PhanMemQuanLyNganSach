@@ -11,22 +11,45 @@
 
 ## 2. Tính năng chính  
 
-### 👑 Dành cho Admin  
-- Tạo và quản lý nhóm, gửi lời mời thành viên.  
-- Quản lý giao dịch thu/chi, phê duyệt hoặc từ chối giao dịch.  
-- Theo dõi báo cáo tổng hợp, thống kê và biểu đồ tài chính.  
-- Quản lý thành viên và phân quyền người dùng.  
+### 👑 Dành cho Admin (thủ quỹ)  
+- Tạo, sửa, đóng nhóm; mời và xóa thành viên.  
+- Tạo khoản thu (chọn người phải đóng) và khoản chi (kiểm tra đủ quỹ); sửa, hủy giao dịch.  
+- **Xác nhận hoặc từ chối** tiền thành viên báo đã chuyển; ghi nhận đóng tiền mặt.  
+- Xem báo cáo tổng quan, đóng góp, thu chi theo nhóm.  
 
-### 👥 Dành cho User  
-- Đăng ký, đăng nhập, tham gia nhóm qua mã hoặc lời mời.  
-- Theo dõi giao dịch, đóng góp, và xem lịch sử thu chi cá nhân.  
-- Xem báo cáo tổng quan và quản lý thông tin cá nhân.  
+### 👥 Dành cho User (thành viên)  
+- Đăng ký, đăng nhập, chấp nhận / từ chối lời mời vào nhóm, rời nhóm.  
+- Xem khoản cần đóng, chuyển khoản qua QR rồi **báo đã chuyển tiền**.  
+- Xem số dư quỹ nhóm, các khoản chi, lịch sử đóng góp cá nhân; sửa thông tin cá nhân, đổi mật khẩu.  
 
 ---
 
 ## 3. Kiến trúc hệ thống  
 
-Ứng dụng được thiết kế theo mô hình **MVC (Model – View – Controller)** giúp tách biệt giao diện, logic và dữ liệu.  
+Ứng dụng được thiết kế theo mô hình **MVC (Model – View – Controller)** chia nhiều tầng. Mỗi tầng chỉ gọi tầng ngay bên dưới nó:
+
+```
+ Trình duyệt
+     │  request (GET/POST)
+     ▼
+ Config/RoleInterceptor   ── chưa đăng nhập / sai vai trò → chuyển về /login hoặc /
+     │
+     ▼
+ Controller   nhận dữ liệu form, gọi Service, chọn trang trả về (không chứa nghiệp vụ)
+     │
+     ▼
+ Service      toàn bộ nghiệp vụ: kiểm tra dữ liệu, số dư quỹ, ai được mời, ai phải đóng tiền...
+     │        lỗi nghiệp vụ → BusinessException (Controller hiển thị message cho người dùng)
+     ▼
+ Repository   truy vấn database (Spring Data JPA)
+     │
+     ▼
+ Model        entity ánh xạ bảng MySQL
+```
+
+- **View** là các file Thymeleaf trong `templates/`, nhận dữ liệu từ Controller qua `Model`.
+- **Dto** chứa dữ liệu form (`RegisterForm`, `TransactionForm`) và kết quả báo cáo. Form không bind thẳng vào entity, để người dùng không gửi thêm `id`/`role` để ghi đè dữ liệu.
+- **Phân quyền** khai báo một chỗ duy nhất ở `Config/WebConfig.java`: `/admin/**` chỉ ADMIN; `/user/**` và `/personal-finance` chỉ USER; `/auth/profile` chỉ cần đăng nhập.
 
 ---
 
@@ -56,129 +79,136 @@
 ## 6. Cấu trúc thư mục dự án  
 
 ```bash
-project-root/
+src/main/java/com/oop/quanlingansach/
 │
-├─ src/
-│  ├─ main/
-│  │  ├─ java/
-│  │  │  └─ com/oop/quanlyngansach/
-│  │  │     ├─ controller/
-│  │  │     │   ├─ AdminController.java
-│  │  │     │   ├─ AuthController.java
-│  │  │     │   ├─ GroupAdminController.java
-│  │  │     │   ├─ GroupUserController.java
-│  │  │     │   ├─ PersonalFinanceController.java
-│  │  │     │   ├─ ReportController.java
-│  │  │     │   ├─ UserController.java
-│  │  │     │   └─ UserTransactionController.java
-│  │  │     │
-│  │  │     ├─ model/
-│  │  │     │   ├─ Group.java
-│  │  │     │   ├─ GroupInvite.java
-│  │  │     │   ├─ Member.java
-│  │  │     │   ├─ Report.java
-│  │  │     │   ├─ Transaction.java
-│  │  │     │   ├─ TransactionParticipant.java
-│  │  │     │   └─ User.java
-│  │  │     │
-│  │  │     ├─ repository/
-│  │  │     │   ├─ GroupInviteRepository.java
-│  │  │     │   ├─ GroupRepository.java
-│  │  │     │   ├─ TransactionParticipantRepository.java
-│  │  │     │   ├─ TransactionRepository.java
-│  │  │     │   └─ UserRepository.java
-│  │  │     │
-│  │  │     ├─ service/
-│  │  │     │   ├─ GroupInviteService.java
-│  │  │     │   ├─ GroupService.java
-│  │  │     │   ├─ GroupServiceImpl.java
-│  │  │     │   ├─ ReportService.java
-│  │  │     │   ├─ ReportServiceImpl.java
-│  │  │     │   ├─ TransactionParticipantService.java
-│  │  │     │   ├─ TransactionService.java
-│  │  │     │   ├─ TransactionServiceImpl.java
-│  │  │     │   ├─ UserService.java
-│  │  │     │   └─ UserServiceImpl.java
-│  │  │     │
-│  │  │     └─ Main.java
-│  │  │
-│  │  └─ resources/
-│  │     ├─ static/img/
-│  │     │   └─ anh QR.jpg
-│  │     └─ templates/
-│  │         ├─ admin/
-│  │         │   ├─ auth/
-│  │         │   │   ├─ login.html
-│  │         │   │   └─ register.html
-│  │         │   ├─ finance/
-│  │         │   │   ├─ transaction-detail.html
-│  │         │   │   └─ transactions.html
-│  │         │   ├─ groups/
-│  │         │   │   ├─ group-create.html
-│  │         │   │   └─ group-detail.html
-│  │         │   └─ reports/
-│  │         │       ├─ dashboard.html
-│  │         │       ├─ index.html
-│  │         │       ├─ users.html
-│  │         │       └─ contributions.html
-│  │         └─ user/
-│  │             ├─ finance/
-│  │             │   └─ transactions.html
-│  │             ├─ groups/
-│  │             │   ├─ group-detail.html
-│  │             │   ├─ invites.html
-│  │             │   └─ my-groups.html
-│  │             └─ personal-finance/
-│  │                 ├─ dashboard.html
-│  │                 └─ index.html
-│  │
-│  └─ test/java/com/oop/quanlyngansach/
-│      ├─ AdminControllerTest.java
-│      ├─ AuthControllerTest.java
-│      ├─ DemoApplicationTests.java
-│      ├─ GroupAdminControllerTest.java
-│      ├─ GroupUserControllerTest.java
-│      └─ UserControllerTest.java
+├─ Main.java                     # Điểm khởi chạy Spring Boot
 │
-├─ .gitignore
-├─ .gitattributes
-├─ mvnw
-├─ mvnw.cmd
-└─ pom.xml
+├─ Config/                       # Cấu hình web, phân quyền
+│   ├─ WebConfig.java            # Khu vực nào cần vai trò nào (/admin/**, /user/**, ...)
+│   ├─ RoleInterceptor.java      # Chặn request chưa đăng nhập / sai vai trò
+│   └─ SessionKeys.java          # Tên thuộc tính lưu trong session
+│
+├─ Controller/                   # Nhận request -> gọi Service -> trả về trang Thymeleaf
+│   ├─ AuthController.java              # Đăng nhập, đăng ký, đăng xuất, thông tin cá nhân
+│   ├─ AdminController.java             # Dashboard admin
+│   ├─ GroupAdminController.java        # Admin: quản lý nhóm, mời / xóa thành viên
+│   ├─ AdminTransactionController.java  # Admin: tạo / sửa / xóa giao dịch thu chi
+│   ├─ ReportController.java            # Admin: báo cáo
+│   ├─ UserController.java              # Dashboard user
+│   ├─ GroupUserController.java         # User: nhóm của tôi, lời mời, rời nhóm
+│   ├─ UserTransactionController.java   # User: khoản cần đóng, xác nhận đã chuyển tiền
+│   ├─ PersonalFinanceController.java   # User: thu chi cá nhân
+│   └─ GlobalExceptionHandler.java      # Lỗi nghiệp vụ chưa được xử lý -> về trang chủ kèm thông báo
+│
+├─ Service/                      # Nghiệp vụ (interface + Impl)
+│   ├─ UserService(Impl)         # Tài khoản, mật khẩu BCrypt
+│   ├─ GroupService(Impl)        # Nhóm, thành viên, số dư quỹ
+│   ├─ GroupInviteService(Impl)  # Lời mời vào nhóm
+│   ├─ TransactionService(Impl)  # Giao dịch thu/chi, người phải đóng, xác nhận đóng tiền
+│   ├─ ReportService(Impl)       # Số liệu báo cáo
+│   └─ BusinessException.java    # Lỗi nghiệp vụ, message hiển thị cho người dùng
+│
+├─ Repository/                   # Truy vấn database (Spring Data JPA)
+│   ├─ UserRepository.java
+│   ├─ GroupRepository.java
+│   ├─ GroupInviteRepository.java
+│   ├─ TransactionRepository.java
+│   └─ TransactionParticipantRepository.java
+│
+├─ Model/                        # Entity JPA = bảng trong database
+│   ├─ User.java                 # users
+│   ├─ Group.java                # groups (+ bảng nối group_members)
+│   ├─ GroupInvite.java          # group_invites
+│   ├─ Transaction.java          # transactions
+│   └─ TransactionParticipant.java  # transaction_participants: ai phải đóng, đã đóng chưa
+│
+└─ Dto/                          # Dữ liệu form và kết quả báo cáo (không phải bảng DB)
+    ├─ RegisterForm.java
+    ├─ TransactionForm.java
+    ├─ ReportOverview.java
+    ├─ ContributionReport.java
+    └─ GroupFundReport.java
+
+src/main/resources/
+├─ application.properties        # Cấu hình; mật khẩu DB lấy từ biến môi trường DB_PASSWORD
+├─ static/img/anh QR.jpg
+└─ templates/
+    ├─ auth/    login, register, profile
+    ├─ admin/   dashboard, groups/, finance/, reports/
+    └─ user/    dashboard, groups/, finance/, personal-finance/
+
+src/test/java/com/oop/quanlingansach/
+├─ Service/      # Test nghiệp vụ (Mockito, không cần Spring)
+├─ Controller/   # Test phân quyền, điều hướng, render giao diện (@WebMvcTest)
+└─ TestData.java # Dữ liệu mẫu dùng chung
 ```
 
 ---
 
-## 7. Mô tả các chức năng chính
-📂 Quản lý nhóm
+## 7. Quy trình nghiệp vụ
 
--Tạo nhóm, đặt tên và mô tả.
+**Vai trò:** ADMIN là thủ quỹ (tạo nhóm, thu chi, xác nhận tiền); USER là thành viên (tham gia nhóm, đóng tiền).
+Tài khoản đăng ký trên web luôn là USER; ADMIN được cấp trong database.
 
--Xóa nhóm (chỉ admin có quyền).
+**Nguyên tắc chung:** số dư quỹ chỉ tính **tiền thủ quỹ đã xác nhận**:
 
--Xem danh sách nhóm đã tham gia.
+```
+Số dư quỹ = Quỹ ban đầu + Tổng tiền đóng đã xác nhận − Tổng chi (không tính khoản chi đã hủy)
+```
 
-💵 Quản lý giao dịch
+### 7.1. Nhóm và thành viên
 
--Thêm, sửa, xóa, xem chi tiết giao dịch.
+```
+Admin tạo nhóm ──> Admin mời USER ──> USER chấp nhận ──> trở thành thành viên
+                                   └─> USER từ chối  ──> admin có thể mời lại
+```
 
--Tự động tính tổng chi, thu của từng nhóm.
+| Quy tắc | Lý do |
+|---|---|
+| Chỉ mời được tài khoản USER, không mời trùng khi đang có lời mời chờ | Tránh mời nhầm admin / spam lời mời |
+| Nhóm **Đã đóng**: không tạo giao dịch, không mời, không nhận thêm thành viên | Nhóm đã kết thúc hoạt động |
+| Nhóm đã có giao dịch: **không xóa được**, chỉ chuyển sang "Đã đóng" | Giữ sổ sách thu chi |
+| Quỹ ban đầu chỉ sửa được khi nhóm **chưa có giao dịch** | Không cho đổi số dư sau khi đã thu chi |
+| Thành viên **còn khoản chưa đóng** thì không được rời nhóm | Không "trốn" khoản phải đóng |
+| Admin xóa thành viên: các khoản chưa đóng của người đó được bỏ. Nếu họ đã báo chuyển tiền thì admin phải xác nhận / từ chối trước | Không mất dấu tiền đã chuyển |
 
--Hiển thị biểu đồ chi tiêu theo loại.
+### 7.2. Khoản thu (thành viên đóng quỹ)
 
-✉️ Mời và quản lý thành viên
+```
+Admin tạo khoản thu, chọn người phải đóng (bỏ trống = cả nhóm)
+   │
+   ▼
+Mỗi người: [Chưa đóng] ──(user bấm "Tôi đã chuyển tiền")──> [Chờ xác nhận]
+                ▲                                               │
+                └──────(thủ quỹ "Từ chối": không thấy tiền)─────┤
+                                                                ▼
+           (thủ quỹ "Xác nhận", kể cả đóng tiền mặt)──────> [Đã đóng]  → cộng vào quỹ
+   │
+   ▼
+Khi tất cả đã đóng → khoản thu tự chuyển "Đã thu đủ" (COMPLETED)
+```
 
--Gửi lời mời qua GroupInvite.
+- Khoản thu đang thu có thể **sửa** (tiêu đề, số tiền, hạn); người chưa đóng sẽ đóng theo số tiền mới, người đã đóng giữ nguyên.
+- **Hủy** khoản thu: ngừng thu phần còn lại, tiền đã đóng vẫn nằm trong quỹ.
+- **Xóa** chỉ áp dụng cho khoản thu chưa có ai đóng (tạo nhầm).
 
--Thành viên có thể chấp nhận hoặc từ chối lời mời.
+### 7.3. Khoản chi
 
--Admin có thể xóa thành viên khỏi nhóm.
+```
+Admin tạo khoản chi ──(quỹ đủ tiền?)──> có: [Đã chi], trừ vào quỹ
+                                    └─> không: báo lỗi kèm số dư hiện có
+[Đã chi] ──(admin Hủy)──> [Đã hủy], số tiền được hoàn lại quỹ
+```
 
-📊 Báo cáo tài chính
+- Khoản chi **không xóa được**, chỉ hủy, để giữ lịch sử.
+- Sửa số tiền khoản chi: quỹ (sau khi hoàn khoản cũ) phải đủ cho số tiền mới.
+- Thành viên trong nhóm thấy được mọi khoản chi chưa hủy (minh bạch).
 
--Thống kê chi tiêu theo thành viên, loại giao dịch và thời gian.
+### 7.4. Báo cáo
 
--Hiển thị tổng đóng góp và phần chi tiêu từng thành viên.
+- **Tổng quan**: số nhóm, giao dịch, thành viên, số khoản đã đóng / chưa đóng.
+- **Đóng góp**: từng khoản phải đóng của từng thành viên, lọc theo nhóm.
+- **Thu chi theo nhóm**: quỹ hiện tại, mục tiêu, lịch sử chi, lịch sử đóng góp đã xác nhận.
 
  ## 8.Sơ đồ UML & Kiến trúc hệ thống
 ### Use Case Diagram
@@ -207,7 +237,18 @@ git clone https://github.com/PhamDuyVQ/VP_NM_25_26_KhuongDuy_HongThai.git
 ---
 
 ### Bước 2: Mở dự án bằng IDE (IntelliJ / Eclipse)
-### Bước 3: Cấu hình database trong application.properties
+### Bước 3: Đặt mật khẩu database
+Mật khẩu **không** lưu trong `application.properties`. Xin mật khẩu từ trưởng nhóm (gửi riêng), rồi tạo file `local.properties` ở **thư mục gốc dự án** (cùng chỗ với `pom.xml`):
+```properties
+DB_PASSWORD=mật-khẩu-database
+```
+File này đã nằm trong `.gitignore` nên không bị commit. (Cách khác: đặt biến môi trường `setx DB_PASSWORD "..."` rồi tắt hẳn và mở lại IDE.)
+Nếu dùng database khác, thêm `DB_URL` và `DB_USERNAME` vào cùng file.
+
+Tài khoản đăng ký trên web luôn là USER. Để có ADMIN, chạy trong database:
+```sql
+UPDATE users SET role = 'ADMIN' WHERE username = 'ten-dang-nhap';
+```
 ### Bước 4: Chạy dự án:
 ```bash
 mvn spring-boot:run

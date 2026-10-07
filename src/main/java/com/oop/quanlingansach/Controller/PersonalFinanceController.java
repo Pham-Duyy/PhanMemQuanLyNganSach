@@ -1,62 +1,41 @@
 package com.oop.quanlingansach.Controller;
 
+import com.oop.quanlingansach.Config.SessionKeys;
 import com.oop.quanlingansach.Model.TransactionParticipant;
-import com.oop.quanlingansach.Service.TransactionService;
-import com.oop.quanlingansach.Service.GroupService;
 import com.oop.quanlingansach.Model.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.oop.quanlingansach.Service.GroupService;
+import com.oop.quanlingansach.Service.TransactionService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.SessionAttribute;
 
-import jakarta.servlet.http.HttpSession;
-import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Trang thu chi cá nhân của user: lịch sử các khoản được yêu cầu đóng.
+ */
 @Controller
 public class PersonalFinanceController {
 
-    @Autowired
-    private TransactionService transactionService;
+    private final TransactionService transactionService;
+    private final GroupService groupService;
 
-    @Autowired
-    private GroupService groupService;
-
-    @GetMapping("/personal-finance")
-public String personalFinance(HttpSession session, Model model) {
-    User user = (User) session.getAttribute("user");
-    if (user == null) {
-        return "redirect:/login";
+    public PersonalFinanceController(TransactionService transactionService, GroupService groupService) {
+        this.transactionService = transactionService;
+        this.groupService = groupService;
     }
 
-    // Lấy tất cả đóng góp (cả đã đóng và chưa đóng)
-    List<TransactionParticipant> contributions = transactionService.findAllContributionsByUserId(user.getId());
+    @GetMapping("/personal-finance")
+    public String personalFinance(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser, Model model) {
+        List<TransactionParticipant> contributions = transactionService.findContributionsOfUser(currentUser.getId());
+        List<TransactionParticipant> paid = contributions.stream().filter(TransactionParticipant::isPaid).toList();
 
-    // Tổng số lần đóng góp (tất cả)
-    int totalContributions = contributions.size();
-
-    // Tổng số tiền đã đóng (chỉ tính những đóng góp đã thanh toán)
-    BigDecimal totalAmount = contributions.stream()
-            .filter(TransactionParticipant::isPaid)
-            .map(TransactionParticipant::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-    // Tổng số tiền phải đóng (tổng amount của tất cả contributions)
-    BigDecimal totalRequiredAmount = contributions.stream()
-            .map(TransactionParticipant::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-    // Tổng số nhóm đã tham gia
-    int joinedGroups = groupService.findGroupsByMemberId(user.getId()).size();
-
-    model.addAttribute("user", user);
-    model.addAttribute("contributions", contributions);
-    model.addAttribute("totalAmount", totalAmount);
-    model.addAttribute("totalRequiredAmount", totalRequiredAmount);
-    model.addAttribute("totalContributions", totalContributions);
-    model.addAttribute("joinedGroups", joinedGroups);
-
-    // Trả về đúng đường dẫn giao diện bạn đã tạo
-    return "user/personal-finance/index";
-}
+        model.addAttribute("user", currentUser);
+        model.addAttribute("contributions", contributions);
+        model.addAttribute("totalContributions", contributions.size());
+        model.addAttribute("totalAmount", TransactionParticipant.totalAmount(paid));
+        model.addAttribute("joinedGroups", groupService.findGroupsOfMember(currentUser.getId()).size());
+        return "user/personal-finance/index";
+    }
 }

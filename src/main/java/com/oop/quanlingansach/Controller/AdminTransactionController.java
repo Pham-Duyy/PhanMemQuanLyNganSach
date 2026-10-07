@@ -1,187 +1,155 @@
 package com.oop.quanlingansach.Controller;
 
-import com.oop.quanlingansach.Model.Group;
+import com.oop.quanlingansach.Config.SessionKeys;
+import com.oop.quanlingansach.Dto.TransactionForm;
 import com.oop.quanlingansach.Model.Transaction;
 import com.oop.quanlingansach.Model.TransactionParticipant;
 import com.oop.quanlingansach.Model.User;
+import com.oop.quanlingansach.Service.BusinessException;
 import com.oop.quanlingansach.Service.GroupService;
 import com.oop.quanlingansach.Service.TransactionService;
-import com.oop.quanlingansach.Service.UserService;
-import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Admin quản lý giao dịch thu/chi của các nhóm.
+ */
 @Controller
 @RequestMapping("/admin/finance/transactions")
 public class AdminTransactionController {
 
-    @Autowired
-    private TransactionService transactionService;
+    private static final String LIST_PAGE = "redirect:/admin/finance/transactions";
 
-    @Autowired
-    private GroupService groupService;
+    private final TransactionService transactionService;
+    private final GroupService groupService;
 
-    @Autowired
-    private UserService userService;
+    public AdminTransactionController(TransactionService transactionService, GroupService groupService) {
+        this.transactionService = transactionService;
+        this.groupService = groupService;
+    }
 
-    // Hiển thị danh sách giao dịch tất cả nhóm
     @GetMapping
-    public String listTransactions(Model model) {
-        List<Transaction> transactions = transactionService.findAll();
-        List<Group> groups = groupService.findAll();
-        model.addAttribute("transactions", transactions);
-        model.addAttribute("groups", groups);
-        // Có thể thêm thống kê tổng thu/chi/số dư nếu cần
+    public String list(Model model) {
+        model.addAttribute("transactions", transactionService.findAll());
+        model.addAttribute("groups", groupService.findAll());
         return "admin/finance/transactions";
     }
 
-    // Xử lý tạo giao dịch mới (từ modal hoặc form)
-    @PostMapping("/create")
-public String createTransaction(
-        @RequestParam Long groupId,
-        @RequestParam String type,
-        @RequestParam BigDecimal amount,
-        @RequestParam String title,
-        @RequestParam(required = false) String description,
-        @RequestParam(required = false, name = "targetUserId") List<String> targetUserIds,
-        @RequestParam(required = false) String dueDate,
-        HttpSession session,
-        RedirectAttributes redirectAttributes) {
-
-    User creator = (User) session.getAttribute("user");
-    if (creator == null) {
-        redirectAttributes.addFlashAttribute("error", "Bạn cần đăng nhập lại!");
-        return "redirect:/login";
-    }
-    Group group = groupService.findById(groupId);
-
-    Transaction tx = new Transaction();
-    tx.setGroup(group);
-    tx.setCreatedBy(creator);
-    tx.setType(type);
-    tx.setAmount(amount);
-    tx.setTitle(title);
-    tx.setDescription(description);
-    tx.setCreatedDate(LocalDateTime.now());
-    tx.setStatus("ACTIVE");
-
-    if (dueDate != null && !dueDate.isEmpty()) {
-        tx.setDueDate(LocalDateTime.parse(dueDate));
-    }
-
-    // Giao dịch thu: chỉ lưu 1 transaction, gửi thông báo cho các thành viên đã chọn
-    if ("INCOME".equalsIgnoreCase(type)) {
-        transactionService.save(tx);
-
-        List<User> notifyUsers;
-        if (targetUserIds != null && targetUserIds.contains("ALL")) {
-            notifyUsers = group.getMembers();
-        } else if (targetUserIds != null) {
-            notifyUsers = targetUserIds.stream()
-                .filter(id -> !"ALL".equals(id))
-                .map(id -> {
-                    try {
-                        return userService.findById(Long.parseLong(id)).orElse(null);
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(u -> u != null)
-                .toList();
-        } else {
-            notifyUsers = List.of();
+    @GetMapping("/detail/{id}")
+    public String detail(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
+        Transaction transaction;
+        try {
+            transaction = transactionService.getById(id);
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return LIST_PAGE;
         }
 
-        for (User member : notifyUsers) {
-            sendPaymentRequest(member, tx);
-        }
+        List<TransactionParticipant> participants = transaction.getParticipants();
+        long paidCount = participants.stream().filter(TransactionParticipant::isPaid).count();
+        long waitingCount = participants.stream().filter(TransactionParticipant::isWaitingConfirmation).count();
 
-        redirectAttributes.addFlashAttribute("success", "Tạo giao dịch thành công! Đã gửi yêu cầu đóng tiền cho thành viên.");
-        return "redirect:/admin/finance/transactions";
+        model.addAttribute("transaction", transaction);
+        model.addAttribute("participants", participants);
+        model.addAttribute("totalParticipants", participants.size());
+        model.addAttribute("paidCount", paidCount);
+        model.addAttribute("waitingCount", waitingCount);
+        model.addAttribute("unpaidCount", participants.size() - paidCount);
+        model.addAttribute("paidPercentage", participants.isEmpty() ? 0 : (int) (paidCount * 100 / participants.size()));
+        return "admin/finance/transaction-detail";
     }
 
-    // Giao dịch chi: gửi thông báo cho tất cả thành viên nhóm
-    if ("EXPENSE".equalsIgnoreCase(type)) {
-        transactionService.save(tx);
-        List<User> members = group.getMembers();
-        for (User member : members) {
-            sendExpenseNotification(member, tx);
-        }
-        redirectAttributes.addFlashAttribute("success", "Tạo giao dịch chi thành công! Đã gửi thông báo cho thành viên.");
-        return "redirect:/admin/finance/transactions";
-    }
-
-    transactionService.save(tx);
-    redirectAttributes.addFlashAttribute("success", "Tạo giao dịch thành công!");
-    return "redirect:/admin/finance/transactions";
-}
-
-  // Xem chi tiết một giao dịch
-@GetMapping("/detail/{transactionId}")
-public String viewTransaction(@PathVariable Long transactionId, Model model) {
-    Transaction tx = transactionService.getTransactionById(transactionId).orElse(null);
-    model.addAttribute("transaction", tx);
-
-    List<TransactionParticipant> participantEntities = tx != null && tx.getParticipants() != null ? tx.getParticipants() : List.of();
-
-    long paidCount = participantEntities.stream().filter(TransactionParticipant::isPaid).count();
-    long unpaidCount = participantEntities.size() - paidCount;
-    int paidPercentage = participantEntities.size() > 0 ? (int) (paidCount * 100 / participantEntities.size()) : 0;
-
-    model.addAttribute("participants", participantEntities); // Truyền participantEntities để view lấy trạng thái paid, paidDate
-    model.addAttribute("totalParticipants", participantEntities.size());
-    model.addAttribute("paidCount", paidCount);
-    model.addAttribute("unpaidCount", unpaidCount);
-    model.addAttribute("paidPercentage", paidPercentage);
-
-    return "admin/finance/transaction-detail";
-}
-
-    // Xóa giao dịch
-    @PostMapping("/{transactionId}/delete")
-    public String deleteTransaction(@PathVariable Long transactionId, RedirectAttributes redirectAttributes) {
-        transactionService.deleteById(transactionId);
-        redirectAttributes.addFlashAttribute("success", "Đã xóa giao dịch!");
-        return "redirect:/admin/finance/transactions";
-    }
-
-    // API lấy thành viên nhóm (dùng cho ajax load thành viên khi chọn nhóm)
+    // Danh sách thành viên nhóm cho ô "chọn người phải đóng" (AJAX)
     @GetMapping("/group/{groupId}/members")
     @ResponseBody
-    public List<User> getGroupMembers(@PathVariable Long groupId) {
-        Group group = groupService.findById(groupId);
-        return group != null ? group.getMembers() : List.of();
+    public List<User> groupMembers(@PathVariable Long groupId) {
+        try {
+            return groupService.getById(groupId).getMembers();
+        } catch (BusinessException e) {
+            return List.of();
+        }
     }
 
-    // Gửi yêu cầu đóng tiền cho user (có thể là notification/email)
-    private void sendPaymentRequest(User user, Transaction tx) {
-        // TODO: Thay bằng logic gửi thực tế (notification/email)
-        // Ví dụ gửi email:
-        String subject = "Yêu cầu đóng tiền cho giao dịch: " + tx.getTitle();
-        String content = "<b>Vui lòng chuyển khoản theo thông tin sau:</b><br>"
-                + "🏛️ Ngân hàng: <b>Techcombank</b><br>"
-                + "📧 STK: <b>9966504911</b><br>"
-                + "👤 Chủ TK: <b>PHAM KHUONG DUY</b><br>"
-                + "<img src='https://your-domain/img/anh%20QR.jpg' alt='QR Techcombank' style='width:180px;height:180px;border-radius:8px;border:1px solid #eee;'><br>"
-                + "Nội dung: " + tx.getTitle() + "<br>"
-                + "Số tiền: " + tx.getAmount() + " VNĐ";
-        // userService.sendEmail(user.getEmail(), subject, content); // Nếu có hàm này
+    @PostMapping("/create")
+    public String create(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @ModelAttribute TransactionForm form,
+                         RedirectAttributes redirectAttributes) {
+        try {
+            Transaction transaction = transactionService.create(form, currentUser);
+            redirectAttributes.addFlashAttribute("success", transaction.isIncome()
+                    ? "Tạo khoản thu thành công! Thành viên được chọn sẽ thấy khoản cần đóng trong mục Giao dịch."
+                    : "Tạo khoản chi thành công!");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return LIST_PAGE;
     }
 
-    // Gửi thông báo chi cho user (notification/email)
-    private void sendExpenseNotification(User user, Transaction tx) {
-        // TODO: Thay bằng logic gửi thực tế (notification/email)
-        String subject = "Thông báo chi: " + tx.getTitle();
-        String content = "Bạn vừa nhận được thông báo chi: " + tx.getTitle()
-                + "<br>Số tiền: " + tx.getAmount() + " VNĐ";
-        // userService.sendEmail(user.getEmail(), subject, content); // Nếu có hàm này
+    @PostMapping("/{id}/update")
+    public String update(@PathVariable Long id, @ModelAttribute TransactionForm form,
+                         RedirectAttributes redirectAttributes) {
+        try {
+            transactionService.update(id, form);
+            redirectAttributes.addFlashAttribute("success", "Cập nhật giao dịch thành công!");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return LIST_PAGE;
+    }
+
+    @PostMapping("/{id}/cancel")
+    public String cancel(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            transactionService.cancel(id);
+            redirectAttributes.addFlashAttribute("success", "Đã hủy giao dịch! Lịch sử vẫn được giữ lại.");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return LIST_PAGE;
+    }
+
+    @PostMapping("/{id}/delete")
+    public String delete(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            transactionService.delete(id);
+            redirectAttributes.addFlashAttribute("success", "Đã xóa giao dịch!");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return LIST_PAGE;
+    }
+
+    // ==================== THỦ QUỸ XÁC NHẬN TIỀN ====================
+
+    @PostMapping("/{id}/participants/{userId}/confirm")
+    public String confirmPayment(@PathVariable Long id, @PathVariable Long userId,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            transactionService.confirmPayment(id, userId);
+            redirectAttributes.addFlashAttribute("success", "Đã xác nhận nhận tiền!");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return detailPage(id);
+    }
+
+    @PostMapping("/{id}/participants/{userId}/reject")
+    public String rejectPayment(@PathVariable Long id, @PathVariable Long userId,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            transactionService.rejectPayment(id, userId);
+            redirectAttributes.addFlashAttribute("success", "Đã từ chối. Thành viên sẽ phải chuyển lại.");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return detailPage(id);
+    }
+
+    private String detailPage(Long id) {
+        return "redirect:/admin/finance/transactions/detail/" + id;
     }
 }

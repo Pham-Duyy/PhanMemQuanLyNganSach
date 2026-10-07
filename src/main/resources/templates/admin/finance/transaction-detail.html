@@ -6,244 +6,25 @@
     <title>Chi tiết giao dịch - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --success-color: #27ae60;
-            --warning-color: #f39c12;
-            --danger-color: #e74c3c;
-            --info-color: #17a2b8;
-        }
-
-        body {
-            font-family: 'Inter', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            margin: 0;
-        }
-
-        .navbar {
-            background: rgba(44, 62, 80, 0.95) !important;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
-
-        .main-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            overflow: hidden;
-        }
-
-        .card-header-custom {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 2rem;
-            border: none;
-        }
-
-        .card-header-custom h3 {
-            margin: 0;
-            font-weight: 700;
-        }
-
-        .transaction-info {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-radius: 15px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .transaction-amount {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--success-color);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .qr-section {
-            background: white;
-            border-radius: 15px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .qr-image {
-            width: 200px;
-            height: 200px;
-            border-radius: 12px;
-            border: 3px solid #e9ecef;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .bank-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-top: 1rem;
-        }
-
-        .participants-table {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-
-        .table-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-        }
-
-        .table thead th {
-            border: none;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-size: 0.85rem;
-        }
-
-        .table tbody tr {
-            transition: all 0.3s ease;
-        }
-
-        .table tbody tr:hover {
-            background: #f8f9fa;
-            transform: scale(1.01);
-        }
-
-        .badge-status {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.75rem;
-        }
-
-        .badge-paid {
-            background: linear-gradient(135deg, var(--success-color), #2ecc71);
-            color: white;
-        }
-
-        .badge-unpaid {
-            background: linear-gradient(135deg, var(--danger-color), #c0392b);
-            color: white;
-        }
-
-        .status-icon {
-            margin-right: 0.5rem;
-        }
-
-        .info-item {
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: white;
-            border-radius: 8px;
-            border-left: 4px solid var(--secondary-color);
-        }
-
-        .info-label {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 0.25rem;
-        }
-
-        .info-value {
-            font-size: 1.1rem;
-        }
-
-        .stats-summary {
-            background: white;
-            border-radius: 15px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 1rem;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: #6c757d;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-back {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .btn-back:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .fade-in {
-            animation: fadeIn 0.6s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 768px) {
-            .transaction-amount {
-                font-size: 2rem;
-            }
-            .qr-image {
-                width: 150px;
-                height: 150px;
-            }
-            .container {
-                padding: 1rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
+<body class="app-page" data-page="admin/finance/transaction-detail">
+    <div th:replace="~{fragments/layout :: shell('admin', 'transactions', 'Chi tiết giao dịch')}"></div>
+    <main class="app-main" id="main-content">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/admin">
-                <i class="fas fa-shield-alt me-2"></i>
-                Admin Dashboard
-            </a>
-            <div class="ms-auto">
-                <a href="/admin/finance/transactions" class="btn btn-back">
-                    <i class="fas fa-arrow-left me-2"></i>Quay lại danh sách
-                </a>
-            </div>
-        </div>
-    </nav>
+    
 
     <div class="container mt-4">
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i><span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+        </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+        </div>
+
         <!-- Main Card -->
         <div class="main-card fade-in">
             <!-- Header -->
@@ -283,6 +64,16 @@
                                             </span>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div class="info-item">
+                                <div class="info-label">Trạng thái</div>
+                                <div class="info-value">
+                                    <span th:if="${transaction.status == 'ACTIVE'}" class="badge bg-warning text-dark fs-6">Đang thu</span>
+                                    <span th:if="${transaction.status == 'COMPLETED'}" class="badge bg-success fs-6"
+                                          th:text="${transaction.type == 'INCOME'} ? 'Đã thu đủ' : 'Đã chi'">Hoàn thành</span>
+                                    <span th:if="${transaction.status == 'CANCELLED'}" class="badge bg-secondary fs-6">Đã hủy</span>
                                 </div>
                             </div>
 
@@ -351,7 +142,11 @@
                         <div class="col-md-3">
                             <div class="stat-item">
                                 <div class="stat-number text-danger" th:text="${unpaidCount ?: 0}">0</div>
-                                <div class="stat-label">Chưa thanh toán</div>
+                                <div class="stat-label">
+                                    Chưa thanh toán
+                                    <span th:if="${waitingCount > 0}" class="badge bg-warning text-dark ms-1"
+                                          th:text="${waitingCount} + ' chờ xác nhận'"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
@@ -379,13 +174,13 @@
                             <thead class="table-header">
                                 <tr>
                                     <th width="5%">#</th>
-                                    <th width="25%">Họ tên</th>
-                                    <th width="30%">Email</th>
-                                    <th width="20%">Ngày xác nhận</th>
-                                    <th width="20%">Trạng thái</th>
+                                    <th width="22%">Họ tên</th>
+                                    <th width="23%">Email</th>
+                                    <th width="15%">Thời gian</th>
+                                    <th width="15%">Trạng thái</th>
+                                    <th width="20%">Thủ quỹ xử lý</th>
                                 </tr>
                             </thead>
-                           <!-- ...existing code... -->
 <tbody>
     <tr th:each="participant, idx : ${participants}" class="align-middle">
         <td>
@@ -404,23 +199,44 @@
             <span class="text-muted" th:text="${participant.user.email}"></span>
         </td>
         <td>
-            <span th:if="${participant.paidDate != null}" 
-                  class="text-success fw-bold"
+            <span th:if="${participant.paid}" class="text-success fw-bold"
                   th:text="${#temporals.format(participant.paidDate, 'dd/MM/yyyy HH:mm')}"></span>
-            <span th:if="${participant.paidDate == null}" 
-                  class="text-muted fst-italic">Chưa xác nhận</span>
+            <span th:if="${participant.waitingConfirmation}" class="text-warning fw-bold"
+                  th:text="'Báo lúc ' + ${#temporals.format(participant.reportedDate, 'dd/MM HH:mm')}"></span>
+            <span th:if="${!participant.paid and !participant.waitingConfirmation}" class="text-muted fst-italic">-</span>
         </td>
         <td>
             <span th:if="${participant.paid}" class="badge badge-status badge-paid">
-                <i class="fas fa-check-circle status-icon"></i>Đã thanh toán
+                <i class="fas fa-check-circle status-icon"></i>Đã đóng
             </span>
-            <span th:if="${!participant.paid}" class="badge badge-status badge-unpaid">
-                <i class="fas fa-times-circle status-icon"></i>Chưa thanh toán
+            <span th:if="${participant.waitingConfirmation}" class="badge badge-status bg-warning text-dark">
+                <i class="fas fa-hourglass-half status-icon"></i>Chờ xác nhận
             </span>
+            <span th:if="${!participant.paid and !participant.waitingConfirmation}" class="badge badge-status badge-unpaid">
+                <i class="fas fa-times-circle status-icon"></i>Chưa đóng
+            </span>
+        </td>
+        <td>
+            <div th:if="${transaction.status == 'ACTIVE' and !participant.paid}" class="d-flex gap-1">
+                <!-- Xác nhận được cả khi thành viên chưa báo (đóng tiền mặt) -->
+                <form th:action="@{/admin/finance/transactions/{id}/participants/{userId}/confirm(id=${transaction.id}, userId=${participant.user.id})}"
+                      method="post">
+                    <button type="submit" class="btn btn-sm btn-success" title="Đã kiểm tra, tiền đã về">
+                        <i class="fas fa-check"></i> Xác nhận
+                    </button>
+                </form>
+                <form th:if="${participant.waitingConfirmation}"
+                      th:action="@{/admin/finance/transactions/{id}/participants/{userId}/reject(id=${transaction.id}, userId=${participant.user.id})}"
+                      method="post" onsubmit="return confirm('Không thấy tiền về? Thành viên sẽ phải chuyển lại.');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Không thấy tiền về">
+                        <i class="fas fa-times"></i> Từ chối
+                    </button>
+                </form>
+            </div>
         </td>
     </tr>
     <tr th:if="${#lists.isEmpty(participants)}">
-        <td colspan="5" class="text-center text-muted py-4">
+        <td colspan="6" class="text-center text-muted py-4">
             <i class="fas fa-users-slash fa-2x mb-2"></i>
             <div>Không có thành viên nào tham gia giao dịch này</div>
         </td>
@@ -434,27 +250,9 @@
         </div>
     </div>
 
+    <footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Animation cho các số thống kê
-        document.addEventListener('DOMContentLoaded', function() {
-            const statNumbers = document.querySelectorAll('.stat-number');
-            statNumbers.forEach(stat => {
-                const finalValue = parseInt(stat.textContent) || 0;
-                let currentValue = 0;
-                const increment = finalValue / 50;
-                
-                const timer = setInterval(() => {
-                    currentValue += increment;
-                    if (currentValue >= finalValue) {
-                        stat.textContent = finalValue + (stat.textContent.includes('%') ? '%' : '');
-                        clearInterval(timer);
-                    } else {
-                        stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
-                    }
-                }, 30);
-            });
-        });
-    </script>
+    
 </body>
 </html>

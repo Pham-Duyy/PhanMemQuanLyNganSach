@@ -8,11 +8,11 @@
 		<version>3.5.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.pttkpm.n02group2</groupId>
-	<artifactId>quanlybanhang</artifactId>
+	<groupId>com.oop</groupId>
+	<artifactId>quanlingansach</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>quanlybanhang</name>
-	<description>He thong quan ly ban hang</description>
+	<name>quanlingansach</name>
+	<description>Fund Manager - Ung dung quan ly ngan sach nhom</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -58,9 +58,25 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Dùng cho chống CSRF và băm mật khẩu BCrypt; phân quyền vẫn do RoleInterceptor -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Database trong bộ nhớ cho test tích hợp (không đụng tới DB thật) -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

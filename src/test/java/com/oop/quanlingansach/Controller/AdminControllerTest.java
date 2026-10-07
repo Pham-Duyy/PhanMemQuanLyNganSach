@@ -1,83 +1,73 @@
 package com.oop.quanlingansach.Controller;
 
-import com.oop.quanlingansach.Model.User;
-import com.oop.quanlingansach.Service.UserService;
+import com.oop.quanlingansach.TestWebConfig;
+import org.springframework.context.annotation.Import;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import com.oop.quanlingansach.Service.GroupService;
 import com.oop.quanlingansach.Service.TransactionService;
-import org.junit.jupiter.api.BeforeEach;
+import com.oop.quanlingansach.Service.UserService;
+import com.oop.quanlingansach.TestData;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Dashboard admin và phân quyền khu vực /admin.
+ */
+@Import(TestWebConfig.class)
 @WebMvcTest(AdminController.class)
 class AdminControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserService userService;
 
-    @MockBean
+    @MockitoBean
     private GroupService groupService;
 
-    @MockBean
+    @MockitoBean
     private TransactionService transactionService;
 
-    private MockHttpSession adminSession;
-    private MockHttpSession userSession;
-
-    @BeforeEach
-    void setUp() {
-        // Tạo session cho admin
-        User admin = new User();
-        admin.setFullName("Admin User");
-        admin.setRole(User.Role.ADMIN);
-        adminSession = new MockHttpSession();
-        adminSession.setAttribute("user", admin);
-
-        // Tạo session cho user thường
-        User user = new User();
-        user.setFullName("Normal User");
-        user.setRole(User.Role.USER);
-        userSession = new MockHttpSession();
-        userSession.setAttribute("user", user);
-    }
-
     @Test
-    void testAdminDashboard_WithAdminRole_ShouldReturnDashboardView() throws Exception {
-        mockMvc.perform(get("/admin/dashboard").session(adminSession))
+    void dashboard_Admin_ShouldRenderWithStatistics() throws Exception {
+        when(userService.countNormalUsers()).thenReturn(5L);
+
+        mockMvc.perform(get("/admin/dashboard").session(TestData.sessionOf(TestData.admin())))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/dashboard"))
-                .andExpect(model().attributeExists("user"));
+                .andExpect(model().attribute("totalUsers", 5L));
     }
 
     @Test
-    void testAdminDashboard_WithoutLogin_ShouldRedirectToLogin() throws Exception {
+    void dashboard_NotLoggedIn_ShouldRedirectToLogin() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login"));
+                .andExpect(redirectedUrl("/login"))
+                .andExpect(flash().attributeExists("error"));
     }
 
     @Test
-    void testAdminDashboard_WithUserRole_ShouldRedirectToLogin() throws Exception {
-        mockMvc.perform(get("/admin/dashboard").session(userSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login"));
+    void dashboard_NormalUser_ShouldBeSentToHome() throws Exception {
+        mockMvc.perform(get("/admin/dashboard").session(TestData.sessionOf(TestData.member(2L))))
+                .andExpect(redirectedUrl("/"));
     }
 
-
     @Test
-    void testAdminHome_ShouldRedirectToDashboard() throws Exception {
-        mockMvc.perform(get("/admin"))
-                .andExpect(status().is3xxRedirection())
+    void adminRoot_ShouldRedirectToDashboard() throws Exception {
+        mockMvc.perform(get("/admin").session(TestData.sessionOf(TestData.admin())))
                 .andExpect(redirectedUrl("/admin/dashboard"));
+    }
+
+    @Test
+    void oldTransactionsPath_ShouldRedirectToFinancePage() throws Exception {
+        mockMvc.perform(get("/admin/transactions").session(TestData.sessionOf(TestData.admin())))
+                .andExpect(redirectedUrl("/admin/finance/transactions"));
     }
 }

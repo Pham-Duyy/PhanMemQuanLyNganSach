@@ -3,32 +3,44 @@ package com.oop.quanlingansach.Repository;
 import com.oop.quanlingansach.Model.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
-@Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    List<Transaction> findByGroupId(Long groupId);
-    List<Transaction> findByCreatedById(Long userId);
 
-    // Giao dịch thu cần đóng của user (user thuộc group của transaction và type = 'INCOME')
-    @Query("SELECT t FROM Transaction t JOIN t.group g JOIN g.members m WHERE m.id = :userId AND t.type = 'INCOME'")
-    List<Transaction> findIncomeTransactionsForUser(Long userId);
-
-    // Giao dịch chi nhận thông báo của user (user thuộc group và type = 'EXPENSE')
-    @Query("SELECT t FROM Transaction t JOIN t.group g JOIN g.members m WHERE m.id = :userId AND t.type = 'EXPENSE'")
-    List<Transaction> findExpenseNotificationsForUser(Long userId);
-
-    // Đếm số giao dịch theo loại (INCOME/EXPENSE)
     long countByType(String type);
 
-    // Tổng số tiền đã chi (từ các giao dịch chi của nhóm)
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.group.id = :groupId AND t.type = 'EXPENSE'")
-    BigDecimal sumExpenseByGroup(Long groupId);
+    boolean existsByGroup_Id(Long groupId);
 
-    // Lấy lịch sử các giao dịch chi của nhóm (mới nhất trước)
-    @Query("SELECT t FROM Transaction t WHERE t.group.id = :groupId AND t.type = 'EXPENSE' ORDER BY t.createdDate DESC")
-    List<Transaction> findExpensesByGroup(Long groupId);
+    // Tổng chi thực tế của mọi nhóm (khoản chi đã hủy được hoàn lại quỹ nên không tính)
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.type = 'EXPENSE' AND t.status <> 'CANCELLED'")
+    BigDecimal sumAllExpenses();
+
+    // Tổng chi thực tế của một nhóm
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+           "WHERE t.group.id = :groupId AND t.type = 'EXPENSE' AND t.status <> 'CANCELLED'")
+    BigDecimal sumExpenseByGroup(@Param("groupId") Long groupId);
+
+    // Tổng chi thực tế theo từng nhóm, một truy vấn cho cả danh sách: [groupId, tổng]
+    @Query("SELECT t.group.id, SUM(t.amount) FROM Transaction t " +
+           "WHERE t.group.id IN :groupIds AND t.type = 'EXPENSE' AND t.status <> 'CANCELLED' GROUP BY t.group.id")
+    List<Object[]> sumExpenseByGroups(@Param("groupIds") Collection<Long> groupIds);
+
+    // Lịch sử chi thực tế của nhóm (không gồm khoản đã hủy), mới nhất trước
+    @Query("SELECT t FROM Transaction t WHERE t.group.id = :groupId AND t.type = 'EXPENSE' AND t.status <> 'CANCELLED' " +
+           "ORDER BY t.createdDate DESC")
+    List<Transaction> findExpensesByGroup(@Param("groupId") Long groupId);
+
+    // Khoản thu user còn phải đóng: được chọn đóng, chưa đóng, giao dịch còn mở
+    @Query("SELECT tp.transaction FROM TransactionParticipant tp WHERE tp.user.id = :userId AND tp.paid = false " +
+           "AND tp.transaction.type = 'INCOME' AND tp.transaction.status = 'ACTIVE' ORDER BY tp.transaction.createdDate DESC")
+    List<Transaction> findPendingIncomeForUser(@Param("userId") Long userId);
+
+    // Khoản chi (chưa hủy) của các nhóm user tham gia, để thông báo cho thành viên
+    @Query("SELECT t FROM Transaction t JOIN t.group g JOIN g.members m WHERE m.id = :userId AND t.type = 'EXPENSE' " +
+           "AND t.status <> 'CANCELLED' ORDER BY t.createdDate DESC")
+    List<Transaction> findExpensesForMember(@Param("userId") Long userId);
 }

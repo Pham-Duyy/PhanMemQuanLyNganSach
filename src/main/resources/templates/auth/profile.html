@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Thông tin cá nhân - Quản Lý Ngân Sách</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
+</head>
+<body class="app-page" data-page="auth/profile">
+    <div th:replace="~{fragments/layout :: shell(${user.admin ? 'admin' : 'user'}, 'profile', 'Hồ sơ cá nhân')}"></div>
+    <main class="app-main" id="main-content">
+
+
+<div class="profile-container">
+    <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i><span th:text="${success}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+
+    <!-- Tổng quan tài khoản -->
+    <div class="profile-card d-flex align-items-center gap-3">
+        <div class="avatar" th:text="${#strings.substring(user.fullName != null and !#strings.isEmpty(user.fullName) ? user.fullName : user.username, 0, 1).toUpperCase()}">U</div>
+        <div>
+            <h4 class="mb-1" th:text="${user.fullName}">Họ tên</h4>
+            <div class="text-muted">
+                <i class="fas fa-user me-1"></i><span th:text="${user.username}"></span>
+                <span class="badge ms-2" th:classappend="${user.admin} ? 'bg-danger' : 'bg-primary'"
+                      th:text="${user.admin} ? 'Quản trị viên' : 'Người dùng'"></span>
+            </div>
+            <div class="text-muted small" th:if="${user.createdDate != null}">
+                <i class="fas fa-calendar me-1"></i>Tham gia từ
+                <span th:text="${#temporals.format(user.createdDate, 'dd/MM/yyyy')}"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sửa thông tin -->
+        <div class="col-lg-6">
+            <div class="profile-card">
+                <h5 class="card-title"><i class="fas fa-id-card me-2"></i>Thông tin cá nhân</h5>
+                <form th:action="@{/auth/profile}" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" th:value="${user.username}" disabled>
+                        <div class="form-text">Tên đăng nhập không thể thay đổi.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label">Họ và tên</label>
+                        <input type="text" class="form-control" id="fullName" name="fullName" th:value="${user.fullName}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" th:value="${user.email}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i>Lưu thông tin
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Đổi mật khẩu -->
+        <div class="col-lg-6">
+            <div class="profile-card" id="doi-mat-khau">
+                <h5 class="card-title"><i class="fas fa-lock me-2"></i>Đổi mật khẩu</h5>
+                <form th:action="@{/auth/change-password}" method="post">
+                    <div class="mb-3">
+                        <label for="oldPassword" class="form-label">Mật khẩu hiện tại</label>
+                        <input type="password" class="form-control" id="oldPassword" name="oldPassword" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">Mật khẩu mới</label>
+                        <input type="password" class="form-control" id="newPassword" name="newPassword" minlength="6" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Nhập lại mật khẩu mới</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" minlength="6" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="fas fa-key me-2"></i>Đổi mật khẩu
+                    </button>
+                    <div class="form-text mt-2">Sau khi đổi mật khẩu, bạn sẽ phải đăng nhập lại.</div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

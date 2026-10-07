@@ -1,103 +1,127 @@
 package com.oop.quanlingansach.Controller;
 
+import com.oop.quanlingansach.TestWebConfig;
+import org.springframework.context.annotation.Import;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import com.oop.quanlingansach.Model.Group;
 import com.oop.quanlingansach.Model.GroupInvite;
 import com.oop.quanlingansach.Model.User;
+import com.oop.quanlingansach.Service.BusinessException;
 import com.oop.quanlingansach.Service.GroupInviteService;
 import com.oop.quanlingansach.Service.GroupService;
-import com.oop.quanlingansach.Service.UserService;
+import com.oop.quanlingansach.TestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Collections;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * User xem nhóm, xem/chấp nhận/từ chối lời mời, rời nhóm.
+ */
+@Import(TestWebConfig.class)
 @WebMvcTest(GroupUserController.class)
 class GroupUserControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private GroupService groupService;
 
-    @MockBean
-    private UserService userService;
+    @MockitoBean
+    private GroupInviteService inviteService;
 
-    @MockBean
-    private GroupInviteService groupInviteService;
-
+    private User member;
     private MockHttpSession session;
-    private User testUser;
-    private Group testGroup;
-    private GroupInvite testInvite;
+    private Group group;
 
     @BeforeEach
     void setUp() {
-        testUser = new User();
-        testUser.setId(1L);
-        testUser.setUsername("user1");
-        testUser.setFullName("User Test");
-        testUser.setRole(User.Role.USER);
-
-        testGroup = new Group();
-        testGroup.setId(100L);
-        testGroup.setName("Nhóm Kiểm Thử");
-        testGroup.setAdminId(2L);
-        testGroup.setMembers(Collections.singletonList(testUser));
-
-        testInvite = new GroupInvite();
-        ReflectionTestUtils.setField(testInvite, "id", 10L);
-        testInvite.setGroup(testGroup);
-        testInvite.setUser(testUser);
-
-        session = new MockHttpSession();
-        session.setAttribute("user", testUser);
+        member = TestData.member(2L);
+        session = TestData.sessionOf(member);
+        group = TestData.group(100L, member);
     }
 
     @Test
-    void testViewInvites_ShouldReturnInviteListView() throws Exception {
-        when(groupInviteService.findPendingInvitesByUser(1L)).thenReturn(Collections.singletonList(testInvite));
-
-        mockMvc.perform(get("/user/groups/invites").session(session))
-                .andExpect(status().isOk())
-                .andExpect(view().name("user/groups/invites"))
-                .andExpect(model().attributeExists("invites"));
-    }
-
-    @Test
-    void testListMyGroups_ShouldReturnMyGroupsView() throws Exception {
-        when(groupService.findGroupsByMember(1L)).thenReturn(Collections.singletonList(testGroup));
+    void myGroups_ShouldRenderWithFunds() throws Exception {
+        when(groupService.findGroupsOfMember(2L)).thenReturn(List.of(group));
+        when(groupService.getCurrentFunds(List.of(group))).thenReturn(Map.of(100L, new BigDecimal("50000")));
 
         mockMvc.perform(get("/user/groups").session(session))
                 .andExpect(status().isOk())
                 .andExpect(view().name("user/groups/my-groups"))
-                .andExpect(model().attributeExists("groups"));
+                .andExpect(model().attribute("memberCount", 1L));
     }
 
     @Test
-    void testViewJoinedGroup_ShouldReturnGroupDetail() throws Exception {
-        when(groupService.findById(100L)).thenReturn(testGroup);
+    void groupDetail_Member_ShouldRender() throws Exception {
+        when(groupService.getById(100L)).thenReturn(group);
+        when(groupService.getCurrentFund(group)).thenReturn(BigDecimal.ZERO);
 
         mockMvc.perform(get("/user/groups/100").session(session))
                 .andExpect(status().isOk())
-                .andExpect(view().name("user/groups/group-detail"))
-                .andExpect(model().attributeExists("group"));
+                .andExpect(view().name("user/groups/group-detail"));
     }
 
     @Test
-    void testViewInvites_WhenNotLoggedIn_ShouldRedirectToLogin() throws Exception {
-        mockMvc.perform(get("/user/groups/invites"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login"));
+    void groupDetail_NotAMember_ShouldGoBack() throws Exception {
+        when(groupService.getById(100L)).thenReturn(TestData.group(100L));
+
+        mockMvc.perform(get("/user/groups/100").session(session))
+                .andExpect(redirectedUrl("/user/groups"))
+                .andExpect(flash().attribute("error", "Bạn không phải thành viên nhóm này!"));
+    }
+
+    @Test
+    void invites_ShouldRender() throws Exception {
+        GroupInvite invite = new GroupInvite(group, member);
+        ReflectionTestUtils.setField(invite, "id", 7L);
+        when(inviteService.findPendingInvites(2L)).thenReturn(List.of(invite));
+
+        mockMvc.perform(get("/user/groups/invites").session(session))
+                .andExpect(status().isOk())
+                .andExpect(view().name("user/groups/invites"));
+    }
+
+    @Test
+    void invites_NotLoggedIn_ShouldGoToLogin() throws Exception {
+        mockMvc.perform(get("/user/groups/invites")).andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void accept_ShouldCallService() throws Exception {
+        mockMvc.perform(post("/user/groups/invites/7/accept").with(csrf()).session(session))
+                .andExpect(redirectedUrl("/user/groups/invites"))
+                .andExpect(flash().attributeExists("success"));
+
+        verify(inviteService).accept(7L, 2L);
+    }
+
+    @Test
+    void decline_Error_ShouldShowMessage() throws Exception {
+        doThrow(new BusinessException("Lời mời đã được xử lý trước đó!")).when(inviteService).decline(7L, 2L);
+
+        mockMvc.perform(post("/user/groups/invites/7/decline").with(csrf()).session(session))
+                .andExpect(flash().attribute("error", "Lời mời đã được xử lý trước đó!"));
+    }
+
+    @Test
+    void leave_ShouldCallService() throws Exception {
+        mockMvc.perform(post("/user/groups/100/leave").with(csrf()).session(session))
+                .andExpect(redirectedUrl("/user/groups"));
+
+        verify(groupService).leave(100L, 2L);
     }
 }

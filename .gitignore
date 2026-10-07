@@ -1,4 +1,6 @@
 HELP.md
+# Mật khẩu database trên máy cá nhân, KHÔNG commit
+local.properties
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/

@@ -1,51 +1,20 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
+    <!-- Token CSRF cho các form do JavaScript tạo -->
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:content="${_csrf.parameterName}">
     <title>Quản lý Thu Chi</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .card {
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        }
-        .card-header {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border-radius: 16px 16px 0 0 !important;
-        }
-        .table thead th {
-            background: #495057;
-            color: white;
-        }
-        .transaction-income {
-            border-left: 4px solid #28a745;
-        }
-        .transaction-expense {
-            border-left: 4px solid #dc3545;
-        }
-        .amount-income {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .amount-expense {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .qr-payment-info {
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
-            border-radius: 12px;
-            padding: 20px;
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
+<body class="app-page" data-page="admin/finance/transactions">
+    <div th:replace="~{fragments/layout :: shell('admin', 'transactions', 'Giao dịch thu chi')}"></div>
+    <main class="app-main" id="main-content">
 <div class="container mt-4">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -69,12 +38,12 @@
     <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i>
         <span th:text="${success}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
     </div>
     <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i>
         <span th:text="${error}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
     </div>
 
     <!-- Danh sách giao dịch -->
@@ -150,11 +119,12 @@
                             </td>
                             <td th:text="${#temporals.format(transaction.createdDate, 'dd/MM/yyyy HH:mm')}"></td>
                             <td>
-                                <span th:if="${transaction.status == 'ACTIVE'}" class="badge bg-success">
-                                    <i class="fas fa-check-circle"></i> Hoạt động
+                                <span th:if="${transaction.status == 'ACTIVE'}" class="badge bg-warning text-dark">
+                                    <i class="fas fa-hourglass-half"></i> Đang thu
                                 </span>
-                                <span th:if="${transaction.status == 'COMPLETED'}" class="badge bg-info">
-                                    <i class="fas fa-flag-checkered"></i> Hoàn thành
+                                <span th:if="${transaction.status == 'COMPLETED'}" class="badge bg-success">
+                                    <i class="fas fa-flag-checkered"></i>
+                                    <span th:text="${transaction.income} ? 'Đã thu đủ' : 'Đã chi'"></span>
                                 </span>
                                 <span th:if="${transaction.status == 'CANCELLED'}" class="badge bg-secondary">
                                     <i class="fas fa-times-circle"></i> Đã hủy
@@ -166,7 +136,9 @@
                                        class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i>
                                     </a>
+<!-- Sửa: khoản thu đang thu hoặc khoản chi chưa hủy -->
 <button type="button" class="btn btn-sm btn-outline-warning btn-edit-transaction"
+        th:if="${transaction.active or (transaction.expense and !transaction.cancelled)}"
         data-bs-toggle="modal" data-bs-target="#createTransactionModal"
         th:attr="data-id=${transaction.id}, 
                  data-title=${transaction.title}, 
@@ -177,7 +149,15 @@
                  data-duedate=${transaction.dueDate != null ? #temporals.format(transaction.dueDate, &quot;yyyy-MM-dd'T'HH:mm&quot;) : ''}">
     <i class="fas fa-edit"></i>
 </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                    <!-- Hủy: giữ lịch sử; khoản chi hủy thì tiền được hoàn lại quỹ -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Hủy giao dịch"
+                                            th:if="${transaction.active or (transaction.expense and !transaction.cancelled)}"
+                                            th:attr="onclick=|cancelTransaction('${transaction.id}', '${transaction.title}')|">
+                                        <i class="fas fa-ban"></i>
+                                    </button>
+                                    <!-- Xóa: chỉ khoản thu chưa ai đóng -->
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Xóa giao dịch"
+                                            th:if="${transaction.income and !transaction.hasConfirmedPayments()}"
                                             th:attr="onclick=|deleteTransaction('${transaction.id}', '${transaction.title}')|">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -200,7 +180,7 @@
                     <h5 class="modal-title" id="transactionModalTitle">
                         <i class="fas fa-plus"></i> Tạo giao dịch mới
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
@@ -278,7 +258,9 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Xử lý khi chọn loại giao dịch
     document.getElementById('type').addEventListener('change', function() {
@@ -315,8 +297,9 @@
             .then(response => response.json())
             .then(members => {
                 targetUserSelect.innerHTML = '<option value="ALL">-- Tất cả thành viên --</option>';
+                // new Option() gán tên dưới dạng văn bản thuần, không cho chèn HTML/script từ tên người dùng
                 members.forEach(member => {
-                    targetUserSelect.innerHTML += `<option value="${member.id}">${member.fullName || member.username}</option>`;
+                    targetUserSelect.add(new Option(member.fullName || member.username, member.id));
                 });
             })
             .catch(error => {
@@ -340,14 +323,30 @@
         });
     });
 
-    // Xóa giao dịch
+    function postTo(url) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        const token = document.createElement('input');
+        token.type = 'hidden';
+        token.name = document.querySelector('meta[name="_csrf_parameter"]').content;
+        token.value = document.querySelector('meta[name="_csrf"]').content;
+        form.appendChild(token);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // Xóa giao dịch (chỉ khoản thu chưa ai đóng)
     function deleteTransaction(transactionId, title) {
         if (confirm(`Bạn chắc chắn muốn xóa giao dịch "${title}"?`)) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/admin/finance/transactions/${transactionId}/delete`;
-            document.body.appendChild(form);
-            form.submit();
+            postTo(`/admin/finance/transactions/${transactionId}/delete`);
+        }
+    }
+
+    // Hủy giao dịch: ngừng thu phần còn lại / hoàn khoản chi vào quỹ, vẫn giữ lịch sử
+    function cancelTransaction(transactionId, title) {
+        if (confirm(`Hủy giao dịch "${title}"?\n- Khoản thu: ngừng thu phần còn lại, tiền đã đóng vẫn giữ trong quỹ.\n- Khoản chi: số tiền được hoàn lại quỹ.`)) {
+            postTo(`/admin/finance/transactions/${transactionId}/cancel`);
         }
     }
 
@@ -374,13 +373,10 @@
                 document.getElementById('description').value = btn.getAttribute('data-description') || '';
                 document.getElementById('dueDate').value = btn.getAttribute('data-duedate') || '';
 
-                // Hiện/ẩn targetUserDiv nếu là INCOME
-                if (btn.getAttribute('data-type') === 'INCOME') {
-                    document.getElementById('targetUserDiv').style.display = 'block';
-                    loadGroupMembers();
-                } else {
-                    document.getElementById('targetUserDiv').style.display = 'none';
-                }
+                // Không cho đổi nhóm, loại và người đóng sau khi đã tạo giao dịch
+                document.getElementById('groupId').disabled = true;
+                document.getElementById('type').disabled = true;
+                document.getElementById('targetUserDiv').style.display = 'none';
             });
         });
 
@@ -394,6 +390,8 @@
             document.getElementById('transactionForm').action = '/admin/finance/transactions/create';
             document.getElementById('transactionSubmitText').innerText = 'Tạo giao dịch';
             document.getElementById('transactionForm').reset();
+            document.getElementById('groupId').disabled = false;
+            document.getElementById('type').disabled = false;
             document.getElementById('targetUserDiv').style.display = 'none';
             document.getElementById('targetUserId').innerHTML = '<option value="ALL">-- Tất cả thành viên --</option>';
         }

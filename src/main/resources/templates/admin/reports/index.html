@@ -1,165 +1,39 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <title>Báo cáo tổng quan - Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background: #f8f9fa; }
-        .dashboard-card { border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-        .stat-number { font-size: 2.5rem; font-weight: bold; }
-        .bg-gradient-primary { background: linear-gradient(45deg, #007bff, #0056b3); }
-        .bg-gradient-success { background: linear-gradient(45deg, #28a745, #20c997); }
-        .bg-gradient-warning { background: linear-gradient(45deg, #ffc107, #fd7e14); }
-        .bg-gradient-info { background: linear-gradient(45deg, #17a2b8, #6f42c1); }
-        .icon-lg { font-size: 2.2rem; }
-        .report-section { margin-bottom: 2rem; }
-        .card-title { font-size: 1.1rem; }
-        .section-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; }
-        .detail-card .btn { min-width: 140px; }
-        .stat-label { font-size: 1.1rem; font-weight: 500; letter-spacing: 1px; }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
-<div class="container py-4">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <h1 class="h3 mb-0"><i class="fas fa-chart-bar me-2"></i>Báo cáo tổng quan hệ thống</h1>
-            <div>
-                <span class="text-muted">Cập nhật: </span>
-                <span th:text="${#dates.format(#dates.createNow(), 'dd/MM/yyyy HH:mm')}"></span>
-            </div>
-        </div>
+<body class="app-page" data-page="admin/reports/index">
+    <div th:replace="~{fragments/layout :: shell('admin', 'reports', 'Báo cáo thống kê')}"></div>
+    <main class="app-main" id="main-content">
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4"><div><span class="page-eyebrow">BỨC TRANH TÀI CHÍNH</span><h2 class="mb-1">Báo cáo tổng quan</h2><p class="mb-0">Theo dõi dòng tiền và tình hình đóng góp của các nhóm.</p></div><span class="text-muted small">Cập nhật <span th:text="${#dates.format(#dates.createNow(), 'dd/MM/yyyy HH:mm')}"></span></span></div>
+    <section class="report-balance" aria-label="Tổng số dư quỹ">
+        <div><span class="eyebrow">SỐ DƯ CÁC NHÓM</span><div class="balance-value"><span th:text="${#numbers.formatDecimal(overview.balance(), 0, 'COMMA', 0, 'POINT')}">0</span><small>VNĐ</small></div><p>Quỹ ban đầu + tiền đã xác nhận − tiền đã chi.</p></div>
+        <div class="balance-meta"><span>Quỹ ban đầu</span><strong><span th:text="${#numbers.formatDecimal(overview.initialFunds, 0, 'COMMA', 0, 'POINT')}">0</span> VNĐ</strong></div>
+    </section>
+    <div class="section-heading"><h3>Dòng tiền của nhóm</h3><span>Đơn vị: VNĐ</span></div>
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-sm-6"><div class="stat-card"><div class="stat-number" th:text="${#numbers.formatDecimal(overview.expectedIncome(), 0, 'COMMA', 0, 'POINT')}">0</div><div class="stat-label">Dự kiến thu</div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card"><div class="stat-number text-success" th:text="${#numbers.formatDecimal(overview.collectedIncome, 0, 'COMMA', 0, 'POINT')}">0</div><div class="stat-label">Đã thu · đã xác nhận</div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card"><div class="stat-number text-warning" th:text="${#numbers.formatDecimal(overview.outstandingIncome, 0, 'COMMA', 0, 'POINT')}">0</div><div class="stat-label">Còn phải thu</div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card"><div class="stat-number text-danger" th:text="${#numbers.formatDecimal(overview.totalExpense, 0, 'COMMA', 0, 'POINT')}">0</div><div class="stat-label">Đã chi · chưa hủy</div></div></div>
     </div>
-
-    <!-- Thống kê tổng quan -->
-    <div class="report-section">
-        <div class="row g-4">
-            <div class="col-md-3 col-6">
-                <div class="card dashboard-card bg-gradient-primary text-white text-center">
-                    <div class="card-body">
-                        <div class="stat-number" th:text="${totalGroups}">0</div>
-                        <div class="stat-label">Tổng số nhóm</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="card dashboard-card bg-white text-primary text-center" style="border: 2px solid #007bff;">
-                    <div class="card-body">
-                        <div class="stat-number" th:text="${totalUsers}">0</div>
-                        <div class="stat-label">TỔNG NGƯỜI DÙNG</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="card dashboard-card bg-gradient-warning text-white text-center">
-                    <div class="card-body">
-                        <div class="stat-number" th:text="${totalTransactions}">0</div>
-                        <div class="stat-label">Tổng giao dịch</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="card dashboard-card bg-gradient-info text-white text-center">
-                    <div class="card-body">
-                        <div class="stat-number" th:text="${#numbers.formatCurrency(totalAmount)}">$0.00</div>
-                        <div class="stat-label">Tổng tiền giao dịch</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="row g-4">
+        <div class="col-lg-6"><section class="card h-100"><div class="card-header"><h5 class="mb-0">Hoạt động hệ thống</h5></div><div class="card-body"><div class="report-metric"><span><i class="fas fa-users me-2"></i>Nhóm ngân sách</span><strong th:text="${overview.totalGroups}">0</strong></div><div class="report-metric"><span><i class="far fa-user me-2"></i>Thành viên</span><strong th:text="${overview.totalUsers}">0</strong></div><div class="report-metric"><span><i class="fas fa-exchange-alt me-2"></i>Giao dịch</span><strong th:text="${overview.totalTransactions}">0</strong></div></div></section></div>
+        <div class="col-lg-6"><section class="card h-100"><div class="card-header"><h5 class="mb-0">Trạng thái đóng góp</h5></div><div class="card-body"><div class="report-metric"><span><span class="metric-dot paid"></span>Đã đóng</span><strong th:text="${overview.paidContributions}">0</strong></div><div class="report-metric"><span><span class="metric-dot waiting"></span>Chờ xác nhận</span><strong th:text="${overview.waitingContributions}">0</strong></div><div class="report-metric"><span><span class="metric-dot unpaid"></span>Chưa đóng</span><strong th:text="${overview.unpaidContributions}">0</strong></div></div></section></div>
     </div>
-
-    <!-- Thống kê đóng góp -->
-    <div class="report-section">
-        <div class="section-title"><i class="fas fa-hand-holding-usd me-2"></i>Thống kê đóng góp</div>
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card dashboard-card text-center">
-                    <div class="card-body">
-                        <i class="fas fa-list icon-lg text-primary mb-2"></i>
-                        <h4 class="text-primary" th:text="${totalContributions}">0</h4>
-                        <p class="mb-0 fw-bold">Tổng đóng góp</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card dashboard-card text-center">
-                    <div class="card-body">
-                        <i class="fas fa-check-circle icon-lg text-success mb-2"></i>
-                        <h4 class="text-success" th:text="${paidContributions}">0</h4>
-                        <p class="mb-0 fw-bold">Đã đóng</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card dashboard-card text-center">
-                    <div class="card-body">
-                        <i class="fas fa-clock icon-lg text-warning mb-2"></i>
-                        <h4 class="text-warning" th:text="${unpaidContributions}">0</h4>
-                        <p class="mb-0 fw-bold">Chưa đóng</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Báo cáo chi tiết -->
-    <div class="report-section">
-        <div class="section-title"><i class="fas fa-file-alt me-2"></i>Báo cáo chi tiết</div>
-        <div class="row g-4 justify-content-center">
-            <div class="col-lg-5 col-md-6">
-                <div class="card dashboard-card h-100 detail-card">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex align-items-center mb-3">
-                            <i class="fas fa-hand-holding-usd fa-2x text-warning me-3"></i>
-                            <div>
-                                <h5 class="card-title mb-0">Báo cáo đóng góp</h5>
-                                <div class="text-muted mb-0" style="font-size: 0.95rem;">Theo dõi đóng góp của thành viên</div>
-                            </div>
-                        </div>
-                        <p class="card-text mb-3">Kiểm tra trạng thái đóng góp của các thành viên trong từng nhóm.</p>
-                        <div class="mt-auto">
-                            <a th:href="@{/admin/reports/contributions}" class="btn btn-warning">
-                                <i class="fas fa-money-check me-2"></i>Xem chi tiết
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-5 col-md-6">
-                <div class="card dashboard-card h-100 detail-card">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex align-items-center mb-3">
-                            <i class="fas fa-user-chart fa-2x text-info me-3"></i>
-                            <div>
-                                <h5 class="card-title mb-0">Báo cáo thu chi</h5>
-                                <div class="text-muted mb-0" style="font-size: 0.95rem;">Hoạt động thu chi</div>
-                            </div>
-                        </div>
-                        <p class="card-text mb-3">Thống kê hoạt động thu chi của các nhóm</p>
-                        <div class="mt-auto">
-                            <a th:href="@{/admin/reports/expenses}" class="btn btn-info text-white">
-                                <i class="fas fa-user-friends me-2"></i>Xem chi tiết
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="row mt-5">
-        <div class="col-12 text-center">
-            <a href="/admin" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Quay lại Dashboard Admin
-            </a>
-        </div>
-    </div>
+    <div class="section-heading"><h3>Khám phá chi tiết</h3><span>Đối chiếu theo từng nhóm</span></div>
+    <div class="row g-4"><div class="col-md-6"><a href="/admin/reports/contributions" class="report-link"><span class="report-link-icon"><i class="fas fa-hand-holding-usd" aria-hidden="true"></i></span><span><strong>Báo cáo đóng góp</strong><small>Theo dõi khoản đóng của từng thành viên</small></span><i class="fas fa-arrow-right ms-auto" aria-hidden="true"></i></a></div><div class="col-md-6"><a href="/admin/reports/expenses" class="report-link"><span class="report-link-icon"><i class="fas fa-chart-line" aria-hidden="true"></i></span><span><strong>Báo cáo thu chi</strong><small>Xem quỹ và lịch sử giao dịch theo nhóm</small></span><i class="fas fa-arrow-right ms-auto" aria-hidden="true"></i></a></div></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

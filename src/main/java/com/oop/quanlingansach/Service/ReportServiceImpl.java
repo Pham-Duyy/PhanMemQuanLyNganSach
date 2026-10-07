@@ -1,5 +1,9 @@
 package com.oop.quanlingansach.Service;
 
+import com.oop.quanlingansach.Dto.ContributionReport;
+import com.oop.quanlingansach.Dto.GroupFundReport;
+import com.oop.quanlingansach.Dto.ReportOverview;
+import com.oop.quanlingansach.Model.Group;
 import com.oop.quanlingansach.Model.Transaction;
 import com.oop.quanlingansach.Model.TransactionParticipant;
 import com.oop.quanlingansach.Model.User;
@@ -7,171 +11,83 @@ import com.oop.quanlingansach.Repository.GroupRepository;
 import com.oop.quanlingansach.Repository.TransactionParticipantRepository;
 import com.oop.quanlingansach.Repository.TransactionRepository;
 import com.oop.quanlingansach.Repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
+    private final TransactionRepository transactionRepository;
+    private final TransactionParticipantRepository participantRepository;
+    private final GroupService groupService;
 
-    @Autowired
-    private GroupRepository groupRepository;
-
-    @Autowired
-    private TransactionRepository transactionRepository;
-
-    @Autowired
-    private TransactionParticipantRepository transactionParticipantRepository;
-
-    @Override
-    public long countAllUsers() {
-        return userRepository.count();
+    public ReportServiceImpl(UserRepository userRepository,
+                             GroupRepository groupRepository,
+                             TransactionRepository transactionRepository,
+                             TransactionParticipantRepository participantRepository,
+                             GroupService groupService) {
+        this.userRepository = userRepository;
+        this.groupRepository = groupRepository;
+        this.transactionRepository = transactionRepository;
+        this.participantRepository = participantRepository;
+        this.groupService = groupService;
     }
 
     @Override
-    public BigDecimal getTotalTransactionAmount() {
-        List<Transaction> transactions = transactionRepository.findAll();
-        return transactions.stream()
-                .map(Transaction::getAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    public ReportOverview getOverview() {
+        return new ReportOverview(
+                groupRepository.count(),
+                transactionRepository.count(),
+                userRepository.countByRole(User.Role.USER),
+                participantRepository.countByPaidTrue(),
+                participantRepository.countWaitingConfirmation(),
+                participantRepository.countUnpaid(),
+                groupRepository.sumInitialFunds(),
+                participantRepository.sumAllPaid(),
+                participantRepository.sumOutstanding(),
+                transactionRepository.sumAllExpenses());
     }
 
     @Override
-    public BigDecimal getTotalAmountByType(String type) {
-        List<Transaction> transactions = transactionRepository.findAll()
-                .stream()
-                .filter(t -> type.equalsIgnoreCase(t.getType()))
-                .collect(Collectors.toList());
-        return transactions.stream()
-                .map(Transaction::getAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    public ContributionReport getContributionReport(Long groupId) {
+        List<TransactionParticipant> participants = groupId != null
+                ? participantRepository.findByTransaction_Group_Id(groupId)
+                : participantRepository.findAll();
+
+        List<Map<String, Object>> rows = participants.stream().map(this::toContributionRow).toList();
+        // Tổng tiền = tiền đã thu thật (đã xác nhận), không cộng các khoản mới chỉ là dự kiến
+        List<TransactionParticipant> paid = participants.stream().filter(TransactionParticipant::isPaid).toList();
+        return new ContributionReport(rows, TransactionParticipant.totalAmount(paid));
     }
 
     @Override
-    public long countAllContributions() {
-        return transactionParticipantRepository.count();
+    public GroupFundReport getGroupFundReport(Group group) {
+        return new GroupFundReport(
+                participantRepository.sumPaidAmountByGroup(group.getId()),
+                transactionRepository.sumExpenseByGroup(group.getId()),
+                groupService.getCurrentFund(group),
+                transactionRepository.findExpensesByGroup(group.getId()),
+                participantRepository.findByTransaction_Group_IdAndPaidTrue(group.getId()));
     }
 
-    @Override
-    public long countPaidContributions() {
-        return transactionParticipantRepository.countByPaidTrue();
-    }
+    private Map<String, Object> toContributionRow(TransactionParticipant participant) {
+        User user = participant.getUser();
+        Transaction transaction = participant.getTransaction();
 
-    @Override
-    public List<Map<String, Object>> getGroupStatistics() {
-        var groups = groupRepository.findAll();
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (var group : groups) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("group", group);
-            map.put("totalMembers", group.getMembers() != null ? group.getMembers().size() : 0);
-            map.put("totalTransactions", transactionRepository.findByGroupId(group.getId()).size());
-            map.put("totalAmount", transactionRepository.findByGroupId(group.getId())
-                    .stream()
-                    .map(Transaction::getAmount)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-            result.add(map);
-        }
-        return result;
-    }
-
-    @Override
-    public List<Map<String, Object>> getTransactionStatistics(String type, String status) {
-        List<Transaction> transactions = transactionRepository.findAll();
-        if (type != null && !type.isEmpty()) {
-            transactions = transactions.stream()
-                    .filter(t -> type.equalsIgnoreCase(t.getType()))
-                    .collect(Collectors.toList());
-        }
-        // Nếu có status, bạn cần bổ sung trường status cho Transaction và lọc ở đây
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (var t : transactions) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("transaction", t);
-            map.put("group", t.getGroup());
-            map.put("amount", t.getAmount());
-            map.put("participants", transactionParticipantRepository.findByTransactionId(t.getId()));
-            result.add(map);
-        }
-        return result;
-    }
-
-    // SỬA ĐÚNG: Trả về từng đóng góp (participant), không tổng hợp theo user!
-    @Override
-    public List<Map<String, Object>> getContributionStatistics(Long groupId) {
-        List<TransactionParticipant> participants;
-        if (groupId != null) {
-            participants = transactionParticipantRepository.findByGroupId(groupId);
-        } else {
-            participants = transactionParticipantRepository.findAll();
-        }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (TransactionParticipant tp : participants) {
-            Map<String, Object> map = new HashMap<>();
-            User user = tp.getUser();
-            Transaction transaction = tp.getTransaction();
-            String groupName = "";
-            if (transaction != null && transaction.getGroup() != null) {
-                groupName = transaction.getGroup().getName();
-            }
-            map.put("userName", user != null ? user.getFullName() : "");
-            map.put("userEmail", user != null ? user.getEmail() : "");
-            map.put("groupName", groupName);
-            map.put("transactionDescription", transaction != null ? transaction.getDescription() : "");
-            map.put("transactionType", transaction != null ? transaction.getType() : "");
-            map.put("amount", tp.getAmount());
-            map.put("status", tp.isPaid() ? "PAID" : "PENDING");
-            map.put("createdDate", transaction != null ? transaction.getCreatedDate() : null);
-            result.add(map);
-        }
-        return result;
-    }
-
-    @Override
-    public List<Map<String, Object>> getUserActivityStatistics() {
-        List<User> users = userRepository.findAll();
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (User user : users) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("user", user);
-            map.put("groups", groupRepository.findByMembers_Id(user.getId()));
-            map.put("contributions", transactionParticipantRepository.findByUserId(user.getId()));
-            map.put("totalContributions", transactionParticipantRepository.findByUserId(user.getId()).size());
-            map.put("totalAmount", transactionParticipantRepository.findByUserId(user.getId())
-                    .stream()
-                    .map(TransactionParticipant::getAmount)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-            result.add(map);
-        }
-        return result;
-    }
-
-    // Các phương thức trả về dữ liệu biểu đồ, bạn có thể tùy chỉnh theo nhu cầu
-    @Override
-    public Object getTransactionByMonthData() {
-        // TODO: Triển khai logic thống kê giao dịch theo tháng
-        return null;
-    }
-
-    @Override
-    public Object getGroupActivityData() {
-        // TODO: Triển khai logic thống kê hoạt động nhóm
-        return null;
-    }
-
-    @Override
-    public Object getPaymentStatusData() {
-        // TODO: Triển khai logic thống kê trạng thái thanh toán
-        return null;
+        Map<String, Object> row = new HashMap<>();
+        row.put("userName", user.getFullName());
+        row.put("userEmail", user.getEmail());
+        row.put("groupName", transaction.getGroup().getName());
+        row.put("transactionDescription", transaction.getDescription());
+        row.put("transactionType", transaction.getType());
+        row.put("amount", participant.getAmount());
+        row.put("status", participant.getStatusCode());
+        row.put("createdDate", transaction.getCreatedDate());
+        return row;
     }
 }

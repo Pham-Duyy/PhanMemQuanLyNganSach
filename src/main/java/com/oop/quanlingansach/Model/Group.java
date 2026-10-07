@@ -1,12 +1,19 @@
 package com.oop.quanlingansach.Model;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
-import java.math.BigDecimal;
-import java.util.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Nhóm quỹ do một admin tạo; thành viên tham gia qua lời mời.
+ */
 @Entity
-@Table(name = "`groups`") // Sử dụng backtick để tránh lỗi reserved keyword MySQL
+@Table(name = "`groups`") // "groups" là từ khóa của MySQL nên cần backtick
 public class Group {
 
     @Id
@@ -20,70 +27,69 @@ public class Group {
     private String description;
 
     @Column(name = "admin_id", nullable = false)
-    private Long adminId; // ID của admin tạo nhóm
+    private Long adminId;
 
     @Column(name = "created_date", nullable = false)
     private LocalDateTime createdDate = LocalDateTime.now();
-
-    @Column(name = "total_budget", nullable = false)
-    private BigDecimal totalBudget = BigDecimal.ZERO;
-
-    @Column(name = "total_income", nullable = false)
-    private BigDecimal totalIncome = BigDecimal.ZERO;
-
-    @Column(name = "total_expense", nullable = false)
-    private BigDecimal totalExpense = BigDecimal.ZERO;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
     @Column(length = 50)
-    private String type; // Loại nhóm: FAMILY, FRIENDS, WORK, TRAVEL, OTHER
+    private String type; // FAMILY, FRIENDS, WORK, TRAVEL, OTHER
 
-    // Thêm các trường quỹ
     @Column(name = "fund_amount")
-    private BigDecimal fundAmount = BigDecimal.ZERO;
+    private BigDecimal fundAmount = BigDecimal.ZERO; // Quỹ ban đầu
 
     @Column(name = "target_amount")
-    private BigDecimal targetAmount = BigDecimal.ZERO;
+    private BigDecimal targetAmount = BigDecimal.ZERO; // Mục tiêu quỹ
 
-    // Danh sách thành viên nhóm (chỉ xóa liên kết, không xóa user)
+    // Cột cũ, không còn dùng (số dư được tính từ giao dịch). Giữ lại vì DB bắt buộc NOT NULL.
+    @Column(name = "total_budget", nullable = false)
+    private BigDecimal totalBudget = BigDecimal.ZERO;
+    @Column(name = "total_income", nullable = false)
+    private BigDecimal totalIncome = BigDecimal.ZERO;
+    @Column(name = "total_expense", nullable = false)
+    private BigDecimal totalExpense = BigDecimal.ZERO;
+
+    // Xóa nhóm chỉ xóa liên kết thành viên, không xóa user
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "group_members",
-        joinColumns = @JoinColumn(name = "group_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
+            name = "group_members",
+            joinColumns = @JoinColumn(name = "group_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private List<User> members = new ArrayList<>();
 
-    // Lời mời tham gia nhóm - xóa nhóm sẽ xóa luôn lời mời liên quan
+    // Xóa nhóm sẽ xóa luôn lời mời và giao dịch của nhóm
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GroupInvite> invites = new ArrayList<>();
-    
-@OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-private List<Member> membersDetail = new ArrayList<>();
 
-    // Giao dịch của nhóm - xóa nhóm sẽ xóa luôn giao dịch liên quan
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Transaction> transactions = new ArrayList<>();
 
-    // Constructors
     public Group() {}
 
     public Group(String name, String description, Long adminId) {
         this.name = name;
         this.description = description;
         this.adminId = adminId;
-        this.createdDate = LocalDateTime.now();
-        this.totalBudget = BigDecimal.ZERO;
-        this.totalIncome = BigDecimal.ZERO;
-        this.totalExpense = BigDecimal.ZERO;
-        this.isActive = true;
-        this.fundAmount = BigDecimal.ZERO;
-        this.targetAmount = BigDecimal.ZERO;
     }
 
-    // Getters and Setters
+    public boolean hasMember(Long userId) {
+        return members.stream().anyMatch(m -> m.getId().equals(userId));
+    }
+
+    public void addMember(User user) {
+        if (!hasMember(user.getId())) {
+            members.add(user);
+        }
+    }
+
+    public void removeMember(Long userId) {
+        members.removeIf(m -> m.getId().equals(userId));
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -99,15 +105,6 @@ private List<Member> membersDetail = new ArrayList<>();
     public LocalDateTime getCreatedDate() { return createdDate; }
     public void setCreatedDate(LocalDateTime createdDate) { this.createdDate = createdDate; }
 
-    public BigDecimal getTotalBudget() { return totalBudget; }
-    public void setTotalBudget(BigDecimal totalBudget) { this.totalBudget = totalBudget; }
-
-    public BigDecimal getTotalIncome() { return totalIncome; }
-    public void setTotalIncome(BigDecimal totalIncome) { this.totalIncome = totalIncome; }
-
-    public BigDecimal getTotalExpense() { return totalExpense; }
-    public void setTotalExpense(BigDecimal totalExpense) { this.totalExpense = totalExpense; }
-
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
 
@@ -120,8 +117,9 @@ private List<Member> membersDetail = new ArrayList<>();
     public BigDecimal getTargetAmount() { return targetAmount; }
     public void setTargetAmount(BigDecimal targetAmount) { this.targetAmount = targetAmount; }
 
-    public List<User> getMembers() { return members; }
-    public void setMembers(List<User> members) { this.members = members; }
+    // Chỉ đọc: thêm/bớt thành viên qua addMember/removeMember
+    public List<User> getMembers() { return Collections.unmodifiableList(members); }
+    public void setMembers(List<User> members) { this.members = new ArrayList<>(members); }
 
     public List<GroupInvite> getInvites() { return invites; }
     public void setInvites(List<GroupInvite> invites) { this.invites = invites; }
@@ -129,50 +127,15 @@ private List<Member> membersDetail = new ArrayList<>();
     public List<Transaction> getTransactions() { return transactions; }
     public void setTransactions(List<Transaction> transactions) { this.transactions = transactions; }
 
-    // Business Methods
-    public BigDecimal getCurrentBalance() {
-        return totalIncome.subtract(totalExpense);
-    }
-
-    public void addIncome(BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) > 0) {
-            this.totalIncome = this.totalIncome.add(amount);
-            this.totalBudget = this.totalBudget.add(amount);
-        }
-    }
-
-    public void addExpense(BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) > 0) {
-            this.totalExpense = this.totalExpense.add(amount);
-        }
-    }
-
-    // Override methods
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Group group)) return false;
-        return Objects.equals(id, group.id);
+        if (!(o instanceof Group other)) return false;
+        return id != null && id.equals(other.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
-    }
-
-    @Override
-    public String toString() {
-        return "Group{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", adminId=" + adminId +
-                ", createdDate=" + createdDate +
-                ", totalBudget=" + totalBudget +
-                ", totalIncome=" + totalIncome +
-                ", totalExpense=" + totalExpense +
-                ", isActive=" + isActive +
-                ", fundAmount=" + fundAmount +
-                ", targetAmount=" + targetAmount +
-                '}';
+        return Objects.hashCode(id);
     }
 }

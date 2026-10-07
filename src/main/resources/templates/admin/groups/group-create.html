@@ -1,51 +1,17 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <title>Danh sách nhóm ngân sách - Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
-            min-height: 100vh;
-        }
-        .table thead th {
-            background: #2c3e50;
-            color: #fff;
-        }
-        .modal-header {
-            background: #3498db;
-            color: #fff;
-        }
-        .modal-header.bg-success {
-            background: #27ae60 !important;
-        }
-        .btn-primary, .btn-success {
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        .btn-warning, .btn-danger, .btn-info, .btn-outline-primary, .btn-success {
-            font-weight: 500;
-        }
-        .form-label {
-            font-weight: 500;
-        }
-        .modal-content {
-            border-radius: 16px;
-        }
-        .table-bordered > :not(caption) > * > * {
-            border-width: 1.5px;
-        }
-        .badge {
-            font-size: 0.95em;
-        }
-        .alert {
-            border-radius: 12px;
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
+<body class="app-page" data-page="admin/groups/group-create">
+    <div th:replace="~{fragments/layout :: shell('admin', 'groups', 'Quản lý nhóm')}"></div>
+    <main class="app-main" id="main-content">
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary"><i class="fas fa-users-cog me-2"></i>Danh sách nhóm ngân sách</h2>
@@ -188,6 +154,9 @@
 <div class="modal fade" id="inviteUserModal" tabindex="-1" aria-labelledby="inviteUserModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <form id="inviteUserForm" method="post">
+      <!-- action do JavaScript gán nên phải tự thêm token CSRF -->
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="inviteUserModalLabel">Gửi yêu cầu tham gia nhóm</h5>
@@ -214,7 +183,9 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Hiển thị modal gửi yêu cầu tham gia nhóm, truyền groupId vào form
     function showInviteUserForm(groupId) {
@@ -236,21 +207,22 @@
     // Hiển thị modal chỉnh sửa nhóm (cần AJAX để load dữ liệu nhóm)
     function openEditGroupModal(groupId) {
         fetch('/admin/groups/' + groupId + '/json')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('Không tải được dữ liệu nhóm');
+                return response.json();
+            })
             .then(group => {
                 document.getElementById('groupFormModalLabel').innerText = 'Chỉnh sửa nhóm ngân sách';
                 document.getElementById('groupForm').action = '/admin/groups/' + groupId + '/edit';
                 document.getElementById('name').value = group.name;
-                document.getElementById('type').value = group.type;
+                document.getElementById('type').value = group.type || 'OTHER';
                 document.getElementById('description').value = group.description || '';
-                // Xử lý chọn thành viên (memberIds)
-                const membersSelect = document.getElementById('members');
-                if (membersSelect) {
-                    for (let i = 0; i < membersSelect.options.length; i++) {
-                        membersSelect.options[i].selected = group.memberIds.includes(Number(membersSelect.options[i].value));
-                    }
-                }
-            });
+                // Điền đủ các trường để lưu không ghi đè quỹ/mục tiêu/trạng thái về mặc định
+                document.getElementById('fundAmount').value = group.fundAmount ?? 0;
+                document.getElementById('targetAmount').value = group.targetAmount ?? 0;
+                document.getElementById('active').value = String(group.active);
+            })
+            .catch(error => alert(error.message));
     }
 </script>
 </body>

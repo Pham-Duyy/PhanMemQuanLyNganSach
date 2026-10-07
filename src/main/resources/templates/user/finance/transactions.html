@@ -1,39 +1,17 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <title>Giao dịch của tôi</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .card {
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        }
-        .card-header {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border-radius: 16px 16px 0 0 !important;
-        }
-        .income-card {
-            border-left: 4px solid #28a745;
-        }
-        .expense-card {
-            border-left: 4px solid #dc3545;
-        }
-        .qr-payment-info {
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
-            border-radius: 12px;
-            padding: 20px;
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
+<body class="app-page" data-page="user/finance/transactions">
+    <div th:replace="~{fragments/layout :: shell('user', 'transactions', 'Giao dịch thu chi')}"></div>
+    <main class="app-main" id="main-content">
 <div class="container mt-4">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -54,7 +32,12 @@
     <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert" id="successAlert">
         <i class="fas fa-check-circle me-2"></i>
         <span th:text="${success}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
     </div>
 
     <!-- Giao dịch thu cần đóng -->
@@ -96,7 +79,11 @@
                                 Ngày tạo: <span th:text="${#temporals.format(transaction.createdDate, 'dd/MM/yyyy HH:mm')}"></span>
                             </small>
                         </div>
-                        <button type="button" class="btn btn-success"
+                        <div th:if="${waitingIds.contains(transaction.id)}" class="alert alert-warning py-2 mb-0">
+                            <i class="fas fa-hourglass-half me-2"></i>
+                            Bạn đã báo chuyển tiền. Đang chờ thủ quỹ kiểm tra và xác nhận.
+                        </div>
+                        <button th:unless="${waitingIds.contains(transaction.id)}" type="button" class="btn btn-success"
                                 data-bs-toggle="modal"
                                 th:attr="data-bs-target='#paymentModal' + ${transaction.id}">
                             <i class="fas fa-credit-card me-2"></i>Xem thông tin chuyển khoản
@@ -125,7 +112,7 @@
                                     <h5 class="modal-title">
                                         <i class="fas fa-credit-card me-2"></i>Thông tin chuyển khoản
                                     </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                                 </div>
                                 <div class="modal-body">
                                     <div class="row">
@@ -177,10 +164,10 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                    <form th:action="@{/user/finance/transactions/{id}/confirm(id=${transaction.id})}" method="post" class="d-inline"
-                                          th:onsubmit="'setTimeout(function(){removeIncomeTransaction(' + ${transaction.id} + ');}, 100);'">
+                                    <!-- Báo đã chuyển; tiền chỉ vào quỹ khi thủ quỹ xác nhận -->
+                                    <form th:action="@{/user/finance/transactions/{id}/confirm(id=${transaction.id})}" method="post" class="d-inline">
                                         <button type="submit" class="btn btn-success">
-                                            <i class="fas fa-check me-2"></i>Xác nhận đã chuyển tiền
+                                            <i class="fas fa-paper-plane me-2"></i>Tôi đã chuyển tiền
                                         </button>
                                     </form>
                                 </div>
@@ -247,7 +234,9 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text).then(function() {
@@ -272,16 +261,6 @@
     function removeExpenseNotification(id) {
         var el = document.getElementById('expense-notify-' + id);
         if (el) el.remove();
-    }
-
-    // Xóa income transaction khỏi màn hình sau khi xác nhận chuyển tiền (nếu muốn realtime, không reload)
-    function removeIncomeTransaction(id) {
-        var el = document.querySelector('[data-bs-target="#paymentModal' + id + '"]');
-        if (el) {
-            // Tìm phần tử cha là row income-card
-            var row = el.closest('.income-card');
-            if (row) row.remove();
-        }
     }
 </script>
 </body>

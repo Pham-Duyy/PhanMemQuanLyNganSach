@@ -1,204 +1,19 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <title>Quản lý thu chi cá nhân - Quản Lý Ngân Sách</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            margin: 0;
-        }
-        
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .navbar-brand {
-            font-weight: 700;
-            color: #667eea !important;
-        }
-        
-        .nav-link {
-            color: #495057 !important;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-        
-        .nav-link:hover {
-            color: #667eea !important;
-        }
-        
-        .finance-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        
-        .stats-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-        
-        .stat-item {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        
-        .stat-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        
-        .history-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .history-title {
-            color: #2d3748;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .table {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .table thead {
-            background: #667eea;
-            color: white;
-        }
-        
-        .table tbody tr:hover {
-            background-color: rgba(102, 126, 234, 0.1);
-        }
-        
-        .badge-paid {
-            background-color: #10b981;
-        }
-        
-        .badge-pending {
-            background-color: #f59e0b;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #718096;
-        }
-        
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-        
-        @media (max-width: 768px) {
-            .finance-container {
-                margin: 1rem auto;
-                padding: 0 0.5rem;
-            }
-            
-            .stats-card, .history-card {
-                padding: 1.5rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
 </head>
-<body>
+<body class="app-page" data-page="user/personal-finance/index">
+    <div th:replace="~{fragments/layout :: shell('user', 'personal', 'Đóng góp cá nhân')}"></div>
+    <main class="app-main" id="main-content">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="/user">
-                <i class="fas fa-wallet me-2"></i>
-                Quản Lý Ngân Sách
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/user">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/user/groups/invites">
-                            <i class="fas fa-users me-1"></i>Nhóm
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/user/finance/transactions">
-                            <i class="fas fa-exchange-alt me-1"></i>Giao dịch
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/personal-finance">
-                            <i class="fas fa-chart-line me-1"></i>Thu chi
-                        </a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>
-                            <span th:text="${user.fullName}">User</span>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/user/profile">
-                                <i class="fas fa-user me-2"></i>Thông tin cá nhân
-                            </a></li>
-                            <li><a class="dropdown-item" href="/user/settings">
-                                <i class="fas fa-cog me-2"></i>Cài đặt
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/logout">
-                                <i class="fas fa-sign-out-alt me-2"></i>Đăng xuất
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    
 
     <div class="finance-container">
         <!-- Thống kê tổng quan -->
@@ -257,13 +72,15 @@
                 th:text="${#numbers.formatDecimal(contribution.amount, 0, 'COMMA', 0, 'POINT')} + ' VNĐ'">0 VNĐ</strong>
         </td>
         <td>
+            <!-- Đã đóng / Chờ xác nhận / Chưa đóng / Đã hủy -->
             <span th:if="${contribution.paid}" class="badge badge-paid">
                 <i class="fas fa-check me-1"></i>
                 <span th:text="${contribution.paidStatus}">Đã đóng</span>
             </span>
-            <span th:unless="${contribution.paid}" class="badge badge-pending">
+            <span th:unless="${contribution.paid}" class="badge"
+                  th:classappend="${contribution.waitingConfirmation} ? 'badge-pending' : 'bg-secondary'">
                 <i class="fas fa-clock me-1"></i>
-                <span th:text="${contribution.paidStatus}">Chờ xác nhận</span>
+                <span th:text="${contribution.paidStatus}">Chưa đóng</span>
             </span>
         </td>
         <td th:text="${contribution.paidDate != null ? #temporals.format(contribution.paidDate, 'dd/MM/yyyy HH:mm') : '-'}">-</td>
@@ -285,22 +102,9 @@
         </div>
     </div>
 
+    <footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+    </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Animation khi load trang
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.stats-card, .history-card');
-            cards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                
-                setTimeout(() => {
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 200);
-            });
-        });
-    </script>
+    
 </body>
 </html>

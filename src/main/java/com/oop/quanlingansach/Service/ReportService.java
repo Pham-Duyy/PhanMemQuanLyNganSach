@@ -1,20 +1,19 @@
 package com.oop.quanlingansach.Service;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+import com.oop.quanlingansach.Dto.ContributionReport;
+import com.oop.quanlingansach.Dto.GroupFundReport;
+import com.oop.quanlingansach.Dto.ReportOverview;
+import com.oop.quanlingansach.Model.Group;
 
+/**
+ * Số liệu thống kê cho các trang báo cáo của admin.
+ */
 public interface ReportService {
-    long countAllUsers();
-    BigDecimal getTotalTransactionAmount();
-    BigDecimal getTotalAmountByType(String type);
-    long countAllContributions();
-    long countPaidContributions();
-    List<Map<String, Object>> getGroupStatistics();
-    List<Map<String, Object>> getTransactionStatistics(String type, String status);
-    List<Map<String, Object>> getContributionStatistics(Long groupId);
-    List<Map<String, Object>> getUserActivityStatistics();
-    Object getTransactionByMonthData();
-    Object getGroupActivityData();
-    Object getPaymentStatusData();
+
+    ReportOverview getOverview();
+
+    /** Đóng góp của mọi nhóm, hoặc của một nhóm nếu groupId khác null. */
+    ContributionReport getContributionReport(Long groupId);
+
+    GroupFundReport getGroupFundReport(Group group);
 }

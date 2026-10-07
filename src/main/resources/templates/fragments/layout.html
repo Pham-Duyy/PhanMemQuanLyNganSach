@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="shell(area, active, title)" th:with="admin=${area == 'admin'}">
+    <a class="skip-link" href="#main-content">Chuyển đến nội dung</a>
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Điều hướng chính">
+        <a class="app-brand" th:href="${admin} ? '/admin/dashboard' : '/user/dashboard'"><span class="brand-mark"><i class="fas fa-wallet" aria-hidden="true"></i></span><span>Fund<span class="brand-light">Manager</span><small>NGÂN SÁCH NHÓM</small></span></a>
+        <div class="workspace-label"><span class="workspace-dot"></span><span th:text="${admin} ? 'Không gian quản trị' : 'Không gian cá nhân'">Không gian cá nhân</span></div>
+        <p class="nav-caption">KHÔNG GIAN LÀM VIỆC</p>
+        <nav class="app-navigation">
+            <a th:href="${admin} ? '/admin/dashboard' : '/user/dashboard'" th:classappend="${active == 'overview'} ? 'is-active'" th:attr="aria-current=${active == 'overview' ? 'page' : null}"><i class="fas fa-th-large" aria-hidden="true"></i>Tổng quan</a>
+            <a th:href="${admin} ? '/admin/groups' : '/user/groups'" th:classappend="${active == 'groups'} ? 'is-active'" th:attr="aria-current=${active == 'groups' ? 'page' : null}"><i class="fas fa-users" aria-hidden="true"></i><span th:text="${admin} ? 'Quản lý nhóm' : 'Nhóm của tôi'">Nhóm của tôi</span></a>
+            <a th:href="${admin} ? '/admin/finance/transactions' : '/user/finance/transactions'" th:classappend="${active == 'transactions'} ? 'is-active'" th:attr="aria-current=${active == 'transactions' ? 'page' : null}"><i class="fas fa-exchange-alt" aria-hidden="true"></i>Giao dịch thu chi</a>
+            <a th:if="${admin}" href="/admin/reports" th:classappend="${active == 'reports'} ? 'is-active'" th:attr="aria-current=${active == 'reports' ? 'page' : null}"><i class="fas fa-chart-pie" aria-hidden="true"></i>Báo cáo thống kê</a>
+            <a th:unless="${admin}" href="/personal-finance" th:classappend="${active == 'personal'} ? 'is-active'" th:attr="aria-current=${active == 'personal' ? 'page' : null}"><i class="fas fa-wallet" aria-hidden="true"></i>Đóng góp cá nhân</a>
+            <a th:unless="${admin}" href="/user/groups/invites" th:classappend="${active == 'invites'} ? 'is-active'" th:attr="aria-current=${active == 'invites' ? 'page' : null}"><i class="far fa-envelope" aria-hidden="true"></i>Lời mời tham gia</a>
+        </nav>
+        <p class="nav-caption">TÀI KHOẢN</p>
+        <nav class="app-navigation"><a href="/auth/profile" th:classappend="${active == 'profile'} ? 'is-active'" th:attr="aria-current=${active == 'profile' ? 'page' : null}"><i class="far fa-user-circle" aria-hidden="true"></i>Hồ sơ &amp; cài đặt</a><a href="/logout"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>Đăng xuất</a></nav>
+        <div class="sidebar-note"><span class="note-icon"><i class="fas fa-seedling" aria-hidden="true"></i></span><strong>Cùng góp, cùng tiến.</strong><p>Mỗi khoản thu chi rõ ràng.<br>Mỗi mục tiêu gần hơn.</p></div>
+        <div class="sidebar-footer">Fund Manager <span>•</span> Quản lý quỹ nhóm</div>
+    </aside>
+    <button class="sidebar-overlay" type="button" aria-label="Đóng menu" hidden></button>
+    <header class="app-topbar">
+        <div class="topbar-context"><button class="menu-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Mở menu điều hướng"><i class="fas fa-bars" aria-hidden="true"></i></button><span class="breadcrumb-root">Không gian làm việc</span><span class="breadcrumb-divider">/</span><strong th:text="${title}">Tổng quan</strong></div>
+        <a href="/auth/profile" class="topbar-account"><span class="account-avatar"><i class="far fa-user" aria-hidden="true"></i></span><span class="account-copy"><strong th:text="${session.user != null ? session.user.fullName : 'Tài khoản'}">Tài khoản</strong><small th:text="${admin} ? 'Quản trị viên' : 'Thành viên'">Thành viên</small></span><i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+    </header>
+</div>
+<section th:fragment="authStory" class="auth-story" aria-label="Giới thiệu Fund Manager">
+    <a class="app-brand" href="/login"><span class="brand-mark"><i class="fas fa-wallet" aria-hidden="true"></i></span><span>Fund<span class="brand-light">Manager</span><small>NGÂN SÁCH NHÓM</small></span></a>
+    <div class="auth-story-content"><span class="eyebrow">CÙNG NHAU, RÕ RÀNG HƠN</span><h1>Quỹ chung. <br>Mục tiêu chung. <br><em>An tâm cùng nhau.</em></h1><p>Một nơi để theo dõi đóng góp, quản lý thu chi và giữ mọi thành viên cùng nhịp với ngân sách nhóm.</p><div class="auth-illustration" aria-hidden="true"><div class="illustration-orbit"></div><div class="illustration-wallet"><i class="fas fa-wallet"></i><span>Góp những điều nhỏ.<br><strong>Tạo nên điều lớn.</strong></span><b>↗</b></div><span class="illustration-tag"><i class="fas fa-check-circle"></i> Minh bạch từng khoản đóng góp</span></div></div>
+    <div class="auth-story-footer"><span><i class="fas fa-users" aria-hidden="true"></i> Gia đình</span><span><i class="fas fa-heart" aria-hidden="true"></i> Bạn bè</span><span><i class="fas fa-briefcase" aria-hidden="true"></i> Đội nhóm</span></div>
+</section>
+</body>
+</html>
