@@ -21,11 +21,6 @@
             </h2>
             <p class="text-white-50 mb-0">Quản lý các yêu cầu đóng tiền và thông báo chi</p>
         </div>
-        <div>
-            <a href="/user/dashboard" class="btn btn-outline-light">
-                <i class="fas fa-arrow-left"></i> Quay lại
-            </a>
-        </div>
     </div>
 
     <!-- Thông báo -->
@@ -83,7 +78,7 @@
                             <i class="fas fa-hourglass-half me-2"></i>
                             Bạn đã báo chuyển tiền. Đang chờ thủ quỹ kiểm tra và xác nhận.
                         </div>
-                        <button th:unless="${waitingIds.contains(transaction.id)}" type="button" class="btn btn-success"
+                        <button th:unless="${waitingIds.contains(transaction.id)}" type="button" class="btn btn-primary"
                                 data-bs-toggle="modal"
                                 th:attr="data-bs-target='#paymentModal' + ${transaction.id}">
                             <i class="fas fa-credit-card me-2"></i>Xem thông tin chuyển khoản
@@ -125,7 +120,7 @@
                                     <div class="mb-3">
                                         <strong>📝 Nội dung chuyển khoản (ghi đúng để thủ quỹ đối chiếu):</strong><br>
                                         <code class="fs-6" th:text="${transaction.transferNoteFor(currentUser)}">QUY1 THU1 username</code>
-                                        <button class="btn btn-sm btn-outline-info ms-2" type="button" title="Sao chép nội dung"
+                                        <button class="btn btn-sm btn-outline-secondary ms-2" type="button" title="Sao chép nội dung"
                                                 th:attr="data-copy=${transaction.transferNoteFor(currentUser)}"
                                                 onclick="navigator.clipboard.writeText(this.dataset.copy)">
                                             <i class="fas fa-copy"></i>
@@ -142,7 +137,7 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                    <button type="submit" class="btn btn-success" th:disabled="${!transaction.group.hasBankAccount()}">
+                                    <button type="submit" class="btn btn-primary" th:disabled="${!transaction.group.hasBankAccount()}">
                                         <i class="fas fa-paper-plane me-2"></i>Tôi đã chuyển tiền
                                     </button>
                                 </div>

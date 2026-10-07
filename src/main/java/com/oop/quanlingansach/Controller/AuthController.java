@@ -109,7 +109,7 @@ public class AuthController {
 
     // ==================== ĐĂNG XUẤT ====================
 
-    @GetMapping("/logout")
+    @PostMapping("/logout")
     public String logout(HttpSession session, RedirectAttributes redirectAttributes) {
         session.invalidate();
         redirectAttributes.addFlashAttribute("success", "Đăng xuất thành công!");

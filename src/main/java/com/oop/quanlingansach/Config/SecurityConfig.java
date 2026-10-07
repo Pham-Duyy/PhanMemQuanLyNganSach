@@ -24,7 +24,7 @@ public class SecurityConfig {
                 .csrf(Customizer.withDefaults())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
-                .logout(logout -> logout.disable())       // dùng GET /logout của AuthController
+                .logout(logout -> logout.disable())       // dùng POST /logout của AuthController
                 .requestCache(cache -> cache.disable())
                 .exceptionHandling(ex -> ex.accessDeniedHandler((request, response, denied) -> {
                     // Thường gặp khi phiên hết hạn làm token CSRF không còn hợp lệ.

@@ -143,9 +143,20 @@ class AuthControllerTest {
     void logout_ShouldInvalidateSession() throws Exception {
         MockHttpSession session = TestData.sessionOf(TestData.member(2L));
 
-        mockMvc.perform(get("/logout").session(session)).andExpect(redirectedUrl("/login"));
+        mockMvc.perform(post("/logout").with(csrf()).session(session)).andExpect(redirectedUrl("/login"));
 
         assertTrue(session.isInvalid());
+    }
+
+    @Test
+    void logout_ViaGetOrWithoutCsrf_ShouldKeepSession() throws Exception {
+        MockHttpSession session = TestData.sessionOf(TestData.member(2L));
+
+        // Một đường link/ảnh lạ không thể đăng xuất người dùng
+        mockMvc.perform(get("/logout").session(session)).andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(post("/logout").session(session)).andExpect(redirectedUrl("/login"));
+
+        assertFalse(session.isInvalid());
     }
 
     // ===================== THÔNG TIN CÁ NHÂN =====================

@@ -25,11 +25,8 @@
             <p class="text-white-50 mb-0">Quản lý các giao dịch thu chi của nhóm</p>
         </div>
         <div>
-            <a href="/admin/dashboard" class="btn btn-outline-light me-2">
-                <i class="fas fa-arrow-left"></i> Quay lại
-            </a>
-            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#createTransactionModal" id="btnCreateTransaction">
-                <i class="fas fa-plus"></i> Tạo giao dịch mới
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTransactionModal" id="btnCreateTransaction">
+                <i class="fas fa-plus" aria-hidden="true"></i> Tạo giao dịch mới
             </button>
         </div>
     </div>
@@ -131,13 +128,11 @@
                                 </span>
                             </td>
                             <td>
-                                <div class="btn-group" role="group">
+                                <div class="row-actions">
                                     <a th:href="@{/admin/finance/transactions/detail/{id}(id=${transaction.id})}" 
-                                       class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
+                                       class="btn btn-sm btn-outline-secondary">Chi tiết</a>
 <!-- Sửa: khoản thu đang thu hoặc khoản chi chưa hủy -->
-<button type="button" class="btn btn-sm btn-outline-warning btn-edit-transaction"
+<button type="button" class="btn btn-sm btn-icon btn-outline-secondary btn-edit-transaction" title="Sửa giao dịch" aria-label="Sửa giao dịch"
         th:if="${transaction.active or (transaction.expense and !transaction.cancelled)}"
         data-bs-toggle="modal" data-bs-target="#createTransactionModal"
         th:attr="data-id=${transaction.id}, 
@@ -147,19 +142,19 @@
                  data-group=${transaction.group.id}, 
                  data-description=${transaction.description}, 
                  data-duedate=${transaction.dueDate != null ? #temporals.format(transaction.dueDate, &quot;yyyy-MM-dd'T'HH:mm&quot;) : ''}">
-    <i class="fas fa-edit"></i>
+    <i class="fas fa-pen" aria-hidden="true"></i>
 </button>
                                     <!-- Hủy: giữ lịch sử; khoản chi hủy thì tiền được hoàn lại quỹ -->
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Hủy giao dịch"
+                                    <button type="button" class="btn btn-sm btn-icon btn-outline-secondary" title="Hủy giao dịch" aria-label="Hủy giao dịch"
                                             th:if="${transaction.active or (transaction.expense and !transaction.cancelled)}"
                                             th:attr="onclick=|cancelTransaction('${transaction.id}', '${transaction.title}')|">
-                                        <i class="fas fa-ban"></i>
+                                        <i class="fas fa-ban" aria-hidden="true"></i>
                                     </button>
                                     <!-- Xóa: chỉ khoản thu chưa ai đóng -->
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Xóa giao dịch"
+                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" title="Xóa giao dịch" aria-label="Xóa giao dịch"
                                             th:if="${transaction.income and !transaction.hasConfirmedPayments()}"
                                             th:attr="onclick=|deleteTransaction('${transaction.id}', '${transaction.title}')|">
-                                        <i class="fas fa-trash"></i>
+                                        <i class="fas fa-trash-alt" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </td>
@@ -245,7 +240,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-warning" id="transactionSubmitBtn">
+                    <button type="submit" class="btn btn-primary" id="transactionSubmitBtn">
                         <i class="fas fa-save"></i> <span id="transactionSubmitText">Tạo giao dịch</span>
                     </button>
                 </div>

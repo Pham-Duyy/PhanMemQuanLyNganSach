@@ -213,7 +213,7 @@
                 <!-- Xác nhận được cả khi thành viên chưa báo (đóng tiền mặt) -->
                 <form th:action="@{/admin/finance/transactions/{id}/participants/{userId}/confirm(id=${transaction.id}, userId=${participant.user.id})}"
                       method="post">
-                    <button type="submit" class="btn btn-sm btn-success" title="Đã kiểm tra, tiền đã về">
+                    <button type="submit" class="btn btn-sm btn-primary" title="Đã kiểm tra, tiền đã về">
                         <i class="fas fa-check"></i> Xác nhận
                     </button>
                 </form>

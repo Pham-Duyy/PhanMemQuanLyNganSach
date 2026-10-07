@@ -21,11 +21,11 @@
             <span class="eyebrow">NGÂN SÁCH CỦA BẠN</span>
 <h2>Xin chào, <span th:text="${user.fullName}">User</span>!</h2>
             <p>Cùng nhìn lại những đóng góp của bạn cho các mục tiêu chung.</p>
-<div class="hero-actions"><a href="/user/finance/transactions" class="btn btn-primary">Xem khoản cần đóng <i class="fas fa-arrow-right"></i></a><a href="/user/groups" class="btn btn-outline-light">Nhóm của tôi</a></div>
+<!-- Một hành động chính; các khu vực khác nằm ở menu bên trái -->
+<div class="hero-actions"><a href="/user/finance/transactions" class="btn btn-primary">Xem khoản cần đóng <i class="fas fa-arrow-right" aria-hidden="true"></i></a></div>
         </div>
 
         <!-- Stats Row -->
-        <!-- ...existing code... -->
 <div class="stats-row">
     <div class="stat-card">
         <div class="stat-number" th:text="${joinedGroups}">0</div>
@@ -40,43 +40,6 @@
         <div class="stat-label">Tổng tiền đã đóng (VNĐ)</div>
     </div>
 </div>
-<!-- ...existing code... -->
-
-        <div class="section-heading"><h3>Tiện ích của bạn</h3><span>Kết nối với ngân sách chung</span></div>
-<div class="dashboard-grid">
-<!-- Dashboard Cards -->
-        <div class="dashboard-card groups">
-    <i class="fas fa-users icon"></i>
-    <h3>Tham gia nhóm</h3>
-    <p>Xem lời mời từ các nhóm của gia đình, bạn bè và đồng nghiệp. Bắt đầu đóng góp cho mục tiêu chung.</p>
-    <a th:href="@{/user/groups/invites}" class="btn-custom btn-groups">
-        <i class="fas fa-arrow-right"></i>
-        Vào nhóm
-    </a>
-</div>
-            
-            <div class="dashboard-card transactions">
-    <i class="fas fa-exchange-alt icon"></i>
-    <h3>Giao dịch</h3>
-    <p>Theo dõi khoản cần đóng, báo đã chuyển tiền và xem các khoản chi của nhóm.</p>
-    <a th:href="@{/user/finance/transactions}" class="btn-custom btn-transactions">
-        <i class="fas fa-chart-bar"></i>
-        Xem giao dịch
-    </a>
-</div>
-            
-            <!-- ...existing code... -->
-<div class="dashboard-card finance">
-    <i class="fas fa-chart-line icon"></i>
-    <h3>Đóng góp cá nhân</h3>
-    <p>Xem lịch sử đóng góp và tổng số tiền bạn đã đóng vào các nhóm.</p>
-    <a th:href="@{/personal-finance}" class="btn-custom btn-finance">
-        <i class="fas fa-wallet"></i>
-        Xem đóng góp
-    </a>
-</div>
-<!-- ...existing code... -->
-        </div>
 
         <!-- Notifications -->
         <div class="notifications-section">
