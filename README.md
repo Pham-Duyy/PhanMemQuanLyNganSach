@@ -49,7 +49,7 @@
 
 - **View** là các file Thymeleaf trong `templates/`, nhận dữ liệu từ Controller qua `Model`.
 - **Dto** chứa dữ liệu form (`RegisterForm`, `TransactionForm`) và kết quả báo cáo. Form không bind thẳng vào entity, để người dùng không gửi thêm `id`/`role` để ghi đè dữ liệu.
-- **Phân quyền** khai báo một chỗ duy nhất ở `Config/WebConfig.java`: `/admin/**` chỉ ADMIN; `/user/**` và `/personal-finance` chỉ USER; `/auth/profile` chỉ cần đăng nhập.
+- **Phân quyền 2 lớp:** (1) theo đường dẫn ở `Config/WebConfig.java`: `/admin/users/**` chỉ ban quản lý, `/admin/**` cho thủ quỹ và ban quản lý, `/user/**` chỉ thành viên; (2) theo từng nhóm ở tầng service (`AdminScope`): thủ quỹ chỉ thao tác được nhóm mình phụ trách, kể cả khi gõ thẳng URL.
 
 ---
 
@@ -94,6 +94,7 @@ src/main/java/com/oop/quanlingansach/
 │   ├─ GroupAdminController.java        # Admin: quản lý nhóm, mời / xóa thành viên
 │   ├─ AdminTransactionController.java  # Admin: tạo / sửa / xóa giao dịch thu chi
 │   ├─ ReportController.java            # Admin: báo cáo
+│   ├─ UserAdminController.java         # Ban quản lý: bổ nhiệm thủ quỹ, khóa tài khoản
 │   ├─ UserController.java              # Dashboard user
 │   ├─ GroupUserController.java         # User: nhóm của tôi, lời mời, rời nhóm
 │   ├─ UserTransactionController.java   # User: khoản cần đóng, xác nhận đã chuyển tiền
@@ -106,6 +107,7 @@ src/main/java/com/oop/quanlingansach/
 │   ├─ GroupInviteService(Impl)  # Lời mời vào nhóm
 │   ├─ TransactionService(Impl)  # Giao dịch thu/chi, người phải đóng, xác nhận đóng tiền
 │   ├─ ReportService(Impl)       # Số liệu báo cáo
+│   ├─ AdminScope.java           # Quy tắc phạm vi: thủ quỹ chỉ quản lý nhóm của mình
 │   └─ BusinessException.java    # Lỗi nghiệp vụ, message hiển thị cho người dùng
 │
 ├─ Repository/                   # Truy vấn database (Spring Data JPA)
@@ -131,10 +133,11 @@ src/main/java/com/oop/quanlingansach/
 
 src/main/resources/
 ├─ application.properties        # Cấu hình; mật khẩu DB lấy từ biến môi trường DB_PASSWORD
-├─ static/img/anh QR.jpg
+├─ static/css, static/js         # Giao diện dùng chung
 └─ templates/
+    ├─ fragments/  layout (menu, thanh trên), bank (tài khoản nhận tiền của nhóm)
     ├─ auth/    login, register, profile
-    ├─ admin/   dashboard, groups/, finance/, reports/
+    ├─ admin/   dashboard, groups/, finance/, reports/, users/ (ban quản lý)
     └─ user/    dashboard, groups/, finance/, personal-finance/
 
 src/test/java/com/oop/quanlingansach/
@@ -147,8 +150,19 @@ src/test/java/com/oop/quanlingansach/
 
 ## 7. Quy trình nghiệp vụ
 
-**Vai trò:** ADMIN là thủ quỹ (tạo nhóm, thu chi, xác nhận tiền); USER là thành viên (tham gia nhóm, đóng tiền).
-Tài khoản đăng ký trên web luôn là USER; ADMIN được cấp trong database.
+**Mô hình: quỹ do một tổ chức quản lý**, 3 vai trò:
+
+| Vai trò | Ai | Được làm |
+|---|---|---|
+| **Ban quản lý** (SYSTEM_ADMIN) | Lãnh đạo tổ chức | Bổ nhiệm / thu hồi thủ quỹ, khóa tài khoản, bàn giao nhóm giữa các thủ quỹ, giám sát mọi nhóm |
+| **Thủ quỹ** (ADMIN) | Người được bổ nhiệm | Tạo nhóm và chỉ quản lý nhóm của mình: thành viên, thu chi, xác nhận tiền, báo cáo |
+| **Thành viên** (USER) | Người đóng quỹ | Tham gia nhóm qua lời mời, chuyển khoản và báo đã chuyển |
+
+Tài khoản đăng ký trên web luôn là Thành viên. Thủ quỹ do Ban quản lý bổ nhiệm trong trang **Quản lý người dùng**; Ban quản lý đầu tiên được cấp trực tiếp trong database.
+
+Mỗi nhóm có **tài khoản nhận tiền riêng** (của thủ quỹ nhóm). Thành viên chuyển khoản với nội dung chuẩn
+`QUY<mã nhóm> THU<mã khoản thu> <tên đăng nhập>` và có thể khai mã giao dịch; thủ quỹ đối chiếu sao kê rồi xác nhận,
+hệ thống ghi lại người xác nhận.
 
 **Nguyên tắc chung:** số dư quỹ chỉ tính **tiền thủ quỹ đã xác nhận**:
 
@@ -245,9 +259,10 @@ DB_PASSWORD=mật-khẩu-database
 File này đã nằm trong `.gitignore` nên không bị commit. (Cách khác: đặt biến môi trường `setx DB_PASSWORD "..."` rồi tắt hẳn và mở lại IDE.)
 Nếu dùng database khác, thêm `DB_URL` và `DB_USERNAME` vào cùng file.
 
-Tài khoản đăng ký trên web luôn là USER. Để có ADMIN, chạy trong database:
+Tài khoản đăng ký trên web luôn là Thành viên. Thủ quỹ được Ban quản lý bổ nhiệm trên web (menu **Quản lý người dùng**).
+Với database mới tinh, cần cấp **Ban quản lý đầu tiên** bằng SQL (chỉ làm một lần):
 ```sql
-UPDATE users SET role = 'ADMIN' WHERE username = 'ten-dang-nhap';
+UPDATE users SET role = 'SYSTEM_ADMIN' WHERE username = 'ten-dang-nhap';
 ```
 ### Bước 4: Chạy dự án:
 ```bash

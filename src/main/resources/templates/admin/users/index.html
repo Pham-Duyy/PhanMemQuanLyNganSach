@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý người dùng - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/fund-manager.css}" href="/css/fund-manager.css">
+    <script defer th:src="@{/js/fund-manager.js}" src="/js/fund-manager.js"></script>
+</head>
+<body class="app-page" data-page="admin/users">
+<div th:replace="~{fragments/layout :: shell('admin', 'users', 'Quản lý người dùng')}"></div>
+<main class="app-main" id="main-content">
+<div class="container">
+    <div class="mb-4">
+        <span class="page-eyebrow">BAN QUẢN LÝ</span>
+        <h2 class="mb-1">Quản lý người dùng</h2>
+        <p class="mb-0">Bổ nhiệm hoặc thu hồi thủ quỹ, khóa hoặc mở khóa tài khoản.</p>
+    </div>
+
+    <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i><span th:text="${success}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+    </div>
+
+    <div class="alert alert-info small">
+        <strong>Quy tắc:</strong>
+        thu hồi thủ quỹ đang phụ trách nhóm thì phải bàn giao nhóm trước (trong trang chi tiết nhóm);
+        bổ nhiệm thủ quỹ cho người đang là thành viên nhóm thì phải cho rời nhóm trước;
+        tài khoản bị khóa sẽ bị đăng xuất ở lần thao tác tiếp theo.
+    </div>
+
+    <section class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th scope="col">Họ tên</th>
+                        <th scope="col">Tên đăng nhập</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Vai trò</th>
+                        <th scope="col">Trạng thái</th>
+                        <th scope="col" class="text-end">Thao tác</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="u : ${users}">
+                        <td class="fw-semibold" th:text="${u.fullName}">Họ tên</td>
+                        <td th:text="${u.username}">username</td>
+                        <td class="text-muted" th:text="${u.email}">email</td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${u.systemAdmin} ? 'bg-danger' : (${u.admin} ? 'bg-primary' : 'bg-secondary')"
+                                  th:text="${u.roleLabel}">Vai trò</span>
+                        </td>
+                        <td>
+                            <span th:if="${u.active}" class="badge bg-success">Hoạt động</span>
+                            <span th:unless="${u.active}" class="badge bg-dark">Đã khóa</span>
+                        </td>
+                        <td class="text-end">
+                            <!-- Không thao tác trên chính mình hoặc ban quản lý khác -->
+                            <span th:if="${u.id == currentUser.id or u.systemAdmin}" class="text-muted small">—</span>
+                            <div th:unless="${u.id == currentUser.id or u.systemAdmin}" class="d-inline-flex gap-1">
+                                <form th:action="@{/admin/users/{id}/role(id=${u.id})}" method="post"
+                                      th:attr="onsubmit=${u.admin} ? 'return confirm(\'Thu hồi quyền thủ quỹ?\');' : 'return confirm(\'Bổ nhiệm làm thủ quỹ?\');'">
+                                    <input type="hidden" name="role" th:value="${u.admin} ? 'USER' : 'ADMIN'">
+                                    <button type="submit" class="btn btn-sm"
+                                            th:classappend="${u.admin} ? 'btn-outline-warning' : 'btn-outline-primary'">
+                                        <i class="fas" th:classappend="${u.admin} ? 'fa-user-minus' : 'fa-user-tie'" aria-hidden="true"></i>
+                                        <span th:text="${u.admin} ? 'Thu hồi thủ quỹ' : 'Bổ nhiệm thủ quỹ'">Bổ nhiệm</span>
+                                    </button>
+                                </form>
+                                <form th:if="${u.active}" th:action="@{/admin/users/{id}/lock(id=${u.id})}" method="post"
+                                      onsubmit="return confirm('Khóa tài khoản này?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-lock" aria-hidden="true"></i> Khóa
+                                    </button>
+                                </form>
+                                <form th:unless="${u.active}" th:action="@{/admin/users/{id}/unlock(id=${u.id})}" method="post">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-lock-open" aria-hidden="true"></i> Mở khóa
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+<footer class="app-footer"><span>Fund Manager · Ngân sách rõ ràng, mục tiêu gần hơn.</span><span>Cùng góp · Cùng quản lý</span></footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

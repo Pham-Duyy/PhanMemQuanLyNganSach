@@ -100,25 +100,13 @@
                     </div>
 
                     <div class="col-lg-4">
-                        <div class="qr-section">
+                        <div class="qr-section text-start">
                             <h5 class="fw-bold mb-3">
-                                <i class="fas fa-qrcode me-2"></i>QR Thanh toán
+                                <i class="fas fa-university me-2"></i>Tài khoản nhận tiền của nhóm
                             </h5>
-                            <img src="/img/anh QR.jpg" alt="QR Techcombank" class="qr-image mb-3">
-                            
-                            <div class="bank-info text-start">
-                                <div class="mb-2">
-                                    <strong><i class="fas fa-university me-2"></i>Ngân hàng:</strong>
-                                    <span class="text-primary">Techcombank</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong><i class="fas fa-credit-card me-2"></i>STK:</strong>
-                                    <span class="text-primary fw-bold">9966504911</span>
-                                </div>
-                                <div class="mb-0">
-                                    <strong><i class="fas fa-user me-2"></i>Chủ TK:</strong>
-                                    <span class="text-primary">PHAM KHUONG DUY</span>
-                                </div>
+                            <div class="bank-info" th:insert="~{fragments/bank :: bankAccount(${transaction.group})}"></div>
+                            <div class="small text-muted mt-3">
+                                Đối chiếu sao kê theo nội dung <code th:text="'QUY' + ${transaction.group.id} + ' THU' + ${transaction.id} + ' <tên đăng nhập>'">QUY1 THU1 &lt;tên đăng nhập&gt;</code>
                             </div>
                         </div>
                     </div>
@@ -201,8 +189,12 @@
         <td>
             <span th:if="${participant.paid}" class="text-success fw-bold"
                   th:text="${#temporals.format(participant.paidDate, 'dd/MM/yyyy HH:mm')}"></span>
+            <div th:if="${participant.paid and participant.confirmedBy != null}" class="small text-muted"
+                 th:text="'Xác nhận: ' + ${participant.confirmedBy.fullName}"></div>
             <span th:if="${participant.waitingConfirmation}" class="text-warning fw-bold"
                   th:text="'Báo lúc ' + ${#temporals.format(participant.reportedDate, 'dd/MM HH:mm')}"></span>
+            <div th:if="${participant.paymentReference != null}" class="small"
+                 th:text="'Mã GD: ' + ${participant.paymentReference}"></div>
             <span th:if="${!participant.paid and !participant.waitingConfirmation}" class="text-muted fst-italic">-</span>
         </td>
         <td>

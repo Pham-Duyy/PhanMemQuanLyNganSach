@@ -25,8 +25,8 @@
             <a href="/admin/groups" class="btn btn-outline-secondary me-2">
                 <i class="fas fa-arrow-left"></i> Quay lại
             </a>
-            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editGroupModal">
-                <i class="fas fa-edit"></i> Chỉnh sửa nhóm
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editGroupModal">
+                <i class="fas fa-pen" aria-hidden="true"></i> Chỉnh sửa nhóm
             </button>
         </div>
     </div>
@@ -75,6 +75,22 @@
                         <span th:text="${#temporals.format(group.createdDate, 'dd/MM/yyyy HH:mm')}"></span>
                     </div>
                     <div class="info-item">
+                        <strong>Thủ quỹ phụ trách:</strong>
+                        <span th:text="${treasurer.fullName + ' (' + treasurer.username + ')'}">Thủ quỹ</span>
+                        <!-- Chỉ ban quản lý được bàn giao nhóm cho thủ quỹ khác -->
+                        <form th:if="${treasurers != null}" class="d-flex gap-2 mt-2"
+                              th:action="@{/admin/groups/{id}/transfer(id=${group.id})}" method="post"
+                              onsubmit="return confirm('Bàn giao nhóm cho thủ quỹ được chọn?');">
+                            <select class="form-select form-select-sm" name="treasurerId" aria-label="Thủ quỹ mới" required>
+                                <option th:each="t : ${treasurers}" th:value="${t.id}" th:selected="${t.id == group.adminId}"
+                                        th:text="${t.fullName + ' — ' + t.roleLabel}"></option>
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">
+                                <i class="fas fa-exchange-alt"></i> Bàn giao
+                            </button>
+                        </form>
+                    </div>
+                    <div class="info-item">
                         <strong>Mô tả:</strong>
                         <p class="mb-0 mt-2" th:text="${group.description ?: 'Chưa có mô tả'}"></p>
                     </div>
@@ -91,6 +107,10 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    <div class="info-item">
+                        <strong class="d-block mb-2">Tài khoản nhận tiền:</strong>
+                        <div th:replace="~{fragments/bank :: bankAccount(${group})}"></div>
+                    </div>
                     <div class="info-item">
                         <strong>Quỹ hiện tại:</strong>
                         <span class="text-success fw-bold">
@@ -131,7 +151,7 @@
                 <i class="fas fa-users me-2"></i>Danh sách thành viên
                 <span class="badge bg-light text-dark ms-2" th:text="${group.members?.size() ?: 0}"></span>
             </h5>
-            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addMemberModal">
                 <i class="fas fa-user-plus"></i> Thêm thành viên
             </button>
         </div>
@@ -184,10 +204,8 @@
                                     <form th:action="@{'/admin/groups/' + ${group.id} + '/members/' + ${member.id} + '/remove'}"
                                           method="post" style="display:inline-block"
                                           th:attr="data-member-name=${member.fullName ?: member.username}">
-                                        <!-- Nếu dùng Spring Security, bỏ comment dòng dưới -->
-                                        <!-- <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" /> -->
-                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirmDeleteMember(this);">
-                                            <i class="fas fa-user-minus"></i> Xóa
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirmDeleteMember(this);">
+                                            <i class="fas fa-user-minus" aria-hidden="true"></i> Gỡ khỏi nhóm
                                         </button>
                                     </form>
                                 </div>
@@ -232,7 +250,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-paper-plane"></i> Gửi lời mời
                     </button>
                 </div>
@@ -292,10 +310,30 @@
                             <option th:value="false">Đã đóng</option>
                         </select>
                     </div>
+                    <fieldset class="border rounded p-3">
+                        <legend class="float-none w-auto px-2 fs-6 mb-0">Tài khoản nhận tiền của nhóm</legend>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label for="editBankName" class="form-label">Ngân hàng</label>
+                                <input type="text" class="form-control" id="editBankName" name="bankName"
+                                       th:value="${group.bankName}" maxlength="100" placeholder="VD: Vietcombank">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editBankAccountNumber" class="form-label">Số tài khoản</label>
+                                <input type="text" class="form-control" id="editBankAccountNumber" name="bankAccountNumber"
+                                       th:value="${group.bankAccountNumber}" inputmode="numeric" pattern="[0-9]{6,20}" maxlength="20">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editBankAccountName" class="form-label">Chủ tài khoản</label>
+                                <input type="text" class="form-control" id="editBankAccountName" name="bankAccountName"
+                                       th:value="${group.bankAccountName}" maxlength="100">
+                            </div>
+                        </div>
+                    </fieldset>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-warning">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Cập nhật
                     </button>
                 </div>

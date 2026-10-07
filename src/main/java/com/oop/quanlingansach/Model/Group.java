@@ -44,6 +44,16 @@ public class Group {
     @Column(name = "target_amount")
     private BigDecimal targetAmount = BigDecimal.ZERO; // Mục tiêu quỹ
 
+    // Tài khoản nhận tiền của nhóm (do thủ quỹ nhóm quản lý); thành viên chuyển khoản vào đây
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "bank_account_number", length = 30)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_account_name", length = 100)
+    private String bankAccountName;
+
     // Cột cũ, không còn dùng (số dư được tính từ giao dịch). Giữ lại vì DB bắt buộc NOT NULL.
     @Column(name = "total_budget", nullable = false)
     private BigDecimal totalBudget = BigDecimal.ZERO;
@@ -90,6 +100,28 @@ public class Group {
         members.removeIf(m -> m.getId().equals(userId));
     }
 
+    /** Thủ quỹ của nhóm, hoặc ban quản lý (giám sát mọi nhóm). */
+    public boolean isManagedBy(User user) {
+        return user.isSystemAdmin() || user.getId().equals(adminId);
+    }
+
+    /** Bàn giao nhóm cho thủ quỹ khác. */
+    public void transferTo(User newTreasurer) {
+        if (!newTreasurer.isAdmin()) {
+            throw new IllegalArgumentException("Người nhận bàn giao phải là thủ quỹ");
+        }
+        this.adminId = newTreasurer.getId();
+    }
+
+    /** Đã khai báo đủ tài khoản nhận tiền chưa (bắt buộc trước khi thu tiền). */
+    public boolean hasBankAccount() {
+        return isFilled(bankName) && isFilled(bankAccountNumber) && isFilled(bankAccountName);
+    }
+
+    private static boolean isFilled(String value) {
+        return value != null && !value.isBlank();
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -116,6 +148,15 @@ public class Group {
 
     public BigDecimal getTargetAmount() { return targetAmount; }
     public void setTargetAmount(BigDecimal targetAmount) { this.targetAmount = targetAmount; }
+
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+
+    public String getBankAccountNumber() { return bankAccountNumber; }
+    public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
+
+    public String getBankAccountName() { return bankAccountName; }
+    public void setBankAccountName(String bankAccountName) { this.bankAccountName = bankAccountName; }
 
     // Chỉ đọc: thêm/bớt thành viên qua addMember/removeMember
     public List<User> getMembers() { return Collections.unmodifiableList(members); }

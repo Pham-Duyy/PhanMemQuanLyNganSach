@@ -62,9 +62,10 @@ public class GroupInviteServiceImpl implements GroupInviteService {
     }
 
     @Override
-    public User invite(Long groupId, Long userId) {
+    public User invite(Long groupId, Long userId, User actor) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException("Nhóm không tồn tại!"));
+        AdminScope.requireManages(group, actor);
         if (!group.isActive()) {
             throw new BusinessException("Nhóm đã đóng, không thể mời thêm thành viên!");
         }

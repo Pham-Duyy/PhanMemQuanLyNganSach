@@ -57,18 +57,18 @@ class UserTransactionControllerTest {
 
     @Test
     void confirm_Success_ShouldCallServiceWithLoggedInUser() throws Exception {
-        mockMvc.perform(post("/user/finance/transactions/5/confirm").with(csrf()).session(TestData.sessionOf(TestData.member(2L))))
+        mockMvc.perform(post("/user/finance/transactions/5/confirm").with(csrf()).param("reference", "FT999").session(TestData.sessionOf(TestData.member(2L))))
                 .andExpect(redirectedUrl("/user/finance/transactions"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(transactionService).reportPayment(5L, 2L);
+        verify(transactionService).reportPayment(5L, 2L, "FT999");
     }
 
     @Test
     void confirm_Error_ShouldShowMessage() throws Exception {
-        doThrow(new BusinessException("Bạn đã xác nhận giao dịch này rồi!")).when(transactionService).reportPayment(5L, 2L);
+        doThrow(new BusinessException("Bạn đã xác nhận giao dịch này rồi!")).when(transactionService).reportPayment(5L, 2L, "FT999");
 
-        mockMvc.perform(post("/user/finance/transactions/5/confirm").with(csrf()).session(TestData.sessionOf(TestData.member(2L))))
+        mockMvc.perform(post("/user/finance/transactions/5/confirm").with(csrf()).param("reference", "FT999").session(TestData.sessionOf(TestData.member(2L))))
                 .andExpect(flash().attribute("error", "Bạn đã xác nhận giao dịch này rồi!"));
     }
 

@@ -636,16 +636,11 @@ a,button {
   background:#fff;
   height:100%;
   box-shadow:none;
-  transition:border-color .18s,box-shadow .18s;
 }
 .dashboard-grid>.dashboard-card {
   padding:26px;
   display:flex;
   flex-direction:column;
-}
-.dashboard-card:hover,.admin-card:hover {
-  border-color:#bfcfba;
-  box-shadow:0 6px 22px #233b3307;
 }
 .dashboard-card .icon,.admin-card .card-icon {
   font-size:22px;
@@ -1664,9 +1659,9 @@ a:hover {
   padding:23px;
   color:var(--fm-ink);
 }
-.report-link:hover {
-  border-color:#bfcfba;
-  color:var(--fm-green);
+.report-link .btn {
+  margin-left:auto;
+  flex-shrink:0;
 }
 .report-link strong {
   display:block;
@@ -1708,4 +1703,29 @@ a:hover {
   .report-link {
     padding:19px;
   }
+}
+
+/* Thao tác trên từng dòng bảng: nút chính có chữ, thao tác phụ là nút biểu tượng cùng kích thước */
+.row-actions {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.row-actions form {
+  display:inline-flex;
+  margin:0;
+}
+.btn-icon {
+  width:32px;
+  height:32px;
+  padding:0;
+  display:inline-grid;
+  place-items:center;
+}
+.action-divider {
+  width:1px;
+  height:20px;
+  background:var(--fm-border);
+  margin:0 2px;
 }

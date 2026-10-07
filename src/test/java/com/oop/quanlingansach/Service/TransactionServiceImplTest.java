@@ -156,14 +156,14 @@ class TransactionServiceImplTest {
     void update_ShouldChangeAmountOfUnpaidParticipantsOnly() {
         Transaction tx = TestData.income(5L, group, "100000");
         TransactionParticipant paid = new TransactionParticipant(tx, member2, new BigDecimal("100000"));
-        paid.confirmPaid();
+        paid.confirmPaid(TestData.admin());
         TransactionParticipant unpaid = new TransactionParticipant(tx, member3, new BigDecimal("100000"));
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
         when(participantRepository.findByTransaction_Id(5L)).thenReturn(List.of(paid, unpaid));
 
         TransactionForm form = form("INCOME", "150000");
         form.setTitle("Quỹ (sửa)");
-        transactionService.update(5L, form);
+        transactionService.update(5L, form, TestData.admin());
 
         assertEquals("Quỹ (sửa)", tx.getTitle());
         assertEquals(0, paid.getAmount().compareTo(new BigDecimal("100000")));
@@ -177,7 +177,7 @@ class TransactionServiceImplTest {
         when(groupService.lockForUpdate(10L)).thenReturn(group);
         when(groupService.getCurrentFund(group)).thenReturn(new BigDecimal("50000")); // quỹ sau khi đã chi 100k
 
-        transactionService.update(6L, form("EXPENSE", "150000")); // 50k + 100k hoàn lại = đủ 150k
+        transactionService.update(6L, form("EXPENSE", "150000"), TestData.admin()); // 50k + 100k hoàn lại = đủ 150k
 
         verify(groupService).lockForUpdate(10L); // phải khóa nhóm trước khi kiểm tra quỹ
 
@@ -198,7 +198,7 @@ class TransactionServiceImplTest {
     void reportPayment_ShouldWaitForTreasurerAndNotCountAsPaid() {
         TransactionParticipant participant = stubParticipant(TestData.income(5L, group, "100000"), member2);
 
-        transactionService.reportPayment(5L, 2L);
+        transactionService.reportPayment(5L, 2L, "FT123");
 
         assertTrue(participant.isWaitingConfirmation());
         assertFalse(participant.isPaid(), "Báo chuyển chưa được tính là đã đóng");
@@ -208,9 +208,9 @@ class TransactionServiceImplTest {
     @Test
     void reportPayment_Twice_ShouldFail() {
         TransactionParticipant participant = stubParticipant(TestData.income(5L, group, "100000"), member2);
-        participant.reportPaid();
+        participant.reportPaid("FT123");
 
-        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L));
+        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L, "FT123"));
     }
 
     @Test
@@ -218,7 +218,7 @@ class TransactionServiceImplTest {
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(TestData.income(5L, group, "100000")));
         when(participantRepository.findByTransaction_IdAndUser_Id(5L, 2L)).thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L));
+        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L, "FT123"));
     }
 
     @Test
@@ -228,8 +228,8 @@ class TransactionServiceImplTest {
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(cancelled));
         when(transactionRepository.findById(6L)).thenReturn(Optional.of(TestData.expense(6L, group, "100000")));
 
-        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L));
-        assertThrows(BusinessException.class, () -> transactionService.reportPayment(6L, 2L));
+        assertThrows(BusinessException.class, () -> transactionService.reportPayment(5L, 2L, "FT123"));
+        assertThrows(BusinessException.class, () -> transactionService.reportPayment(6L, 2L, "FT123"));
         verify(participantRepository, never()).save(any());
     }
 
@@ -237,9 +237,9 @@ class TransactionServiceImplTest {
     void confirmPayment_LastPayer_ShouldCompleteIncome() {
         Transaction tx = TestData.income(5L, group, "100000");
         TransactionParticipant participant = stubParticipant(tx, member2);
-        participant.reportPaid();
+        participant.reportPaid("FT123");
 
-        transactionService.confirmPayment(5L, 2L);
+        transactionService.confirmPayment(5L, 2L, TestData.admin());
 
         assertTrue(participant.isPaid());
         assertNotNull(participant.getPaidDate());
@@ -253,7 +253,7 @@ class TransactionServiceImplTest {
         TransactionParticipant other = new TransactionParticipant(tx, member3, tx.getAmount());
         tx.setParticipants(new java.util.ArrayList<>(List.of(participant, other)));
 
-        transactionService.confirmPayment(5L, 2L);
+        transactionService.confirmPayment(5L, 2L, TestData.admin());
 
         assertTrue(participant.isPaid());
         assertEquals(Transaction.STATUS_ACTIVE, tx.getStatus(), "Còn người chưa đóng thì vẫn đang thu");
@@ -262,17 +262,17 @@ class TransactionServiceImplTest {
     @Test
     void confirmPayment_AlreadyPaid_ShouldFail() {
         TransactionParticipant participant = stubParticipant(TestData.income(5L, group, "100000"), member2);
-        participant.confirmPaid();
+        participant.confirmPaid(TestData.admin());
 
-        assertThrows(BusinessException.class, () -> transactionService.confirmPayment(5L, 2L));
+        assertThrows(BusinessException.class, () -> transactionService.confirmPayment(5L, 2L, TestData.admin()));
     }
 
     @Test
     void rejectPayment_ShouldReturnToUnpaid() {
         TransactionParticipant participant = stubParticipant(TestData.income(5L, group, "100000"), member2);
-        participant.reportPaid();
+        participant.reportPaid("FT123");
 
-        transactionService.rejectPayment(5L, 2L);
+        transactionService.rejectPayment(5L, 2L, TestData.admin());
 
         assertFalse(participant.isWaitingConfirmation());
         assertEquals("Chưa đóng", participant.getPaidStatus());
@@ -282,7 +282,7 @@ class TransactionServiceImplTest {
     void rejectPayment_NotReported_ShouldFail() {
         stubParticipant(TestData.income(5L, group, "100000"), member2);
 
-        assertThrows(BusinessException.class, () -> transactionService.rejectPayment(5L, 2L));
+        assertThrows(BusinessException.class, () -> transactionService.rejectPayment(5L, 2L, TestData.admin()));
     }
 
     // ===================== HỦY / XÓA =====================
@@ -292,7 +292,7 @@ class TransactionServiceImplTest {
         Transaction tx = TestData.income(5L, group, "100000");
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
 
-        transactionService.cancel(5L);
+        transactionService.cancel(5L, TestData.admin());
 
         assertTrue(tx.isCancelled());
     }
@@ -303,7 +303,7 @@ class TransactionServiceImplTest {
         tx.setStatus(Transaction.STATUS_COMPLETED);
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
 
-        assertThrows(BusinessException.class, () -> transactionService.cancel(5L));
+        assertThrows(BusinessException.class, () -> transactionService.cancel(5L, TestData.admin()));
     }
 
     @Test
@@ -311,7 +311,7 @@ class TransactionServiceImplTest {
         Transaction tx = TestData.income(5L, group, "100000");
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
 
-        transactionService.delete(5L);
+        transactionService.delete(5L, TestData.admin());
 
         verify(transactionRepository).delete(tx);
     }
@@ -320,11 +320,11 @@ class TransactionServiceImplTest {
     void delete_IncomeWithConfirmedPayment_ShouldFail() {
         Transaction tx = TestData.income(5L, group, "100000");
         TransactionParticipant paid = new TransactionParticipant(tx, member2, tx.getAmount());
-        paid.confirmPaid();
+        paid.confirmPaid(TestData.admin());
         tx.setParticipants(List.of(paid));
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
 
-        assertThrows(BusinessException.class, () -> transactionService.delete(5L));
+        assertThrows(BusinessException.class, () -> transactionService.delete(5L, TestData.admin()));
         verify(transactionRepository, never()).delete(any());
     }
 
@@ -332,7 +332,7 @@ class TransactionServiceImplTest {
     void delete_Expense_ShouldFailAndSuggestCancel() {
         when(transactionRepository.findById(6L)).thenReturn(Optional.of(TestData.expense(6L, group, "100000")));
 
-        BusinessException e = assertThrows(BusinessException.class, () -> transactionService.delete(6L));
+        BusinessException e = assertThrows(BusinessException.class, () -> transactionService.delete(6L, TestData.admin()));
         assertTrue(e.getMessage().contains("Hủy"));
     }
 
@@ -341,7 +341,7 @@ class TransactionServiceImplTest {
     private Transaction incomeWithWaitingPayment() {
         Transaction tx = TestData.income(5L, group, "100000");
         TransactionParticipant waiting = new TransactionParticipant(tx, member2, tx.getAmount());
-        waiting.reportPaid();
+        waiting.reportPaid("FT123");
         tx.setParticipants(new java.util.ArrayList<>(List.of(waiting)));
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
         return tx;
@@ -351,7 +351,7 @@ class TransactionServiceImplTest {
     void update_ChangeAmountWhileWaitingConfirmation_ShouldFail() {
         incomeWithWaitingPayment();
 
-        assertThrows(BusinessException.class, () -> transactionService.update(5L, form("INCOME", "150000")));
+        assertThrows(BusinessException.class, () -> transactionService.update(5L, form("INCOME", "150000"), TestData.admin()));
         verify(participantRepository, never()).save(any());
     }
 
@@ -361,7 +361,7 @@ class TransactionServiceImplTest {
         TransactionForm form = form("INCOME", "100000");
         form.setTitle("Chỉ sửa tiêu đề");
 
-        transactionService.update(5L, form);
+        transactionService.update(5L, form, TestData.admin());
 
         assertEquals("Chỉ sửa tiêu đề", tx.getTitle());
     }
@@ -370,8 +370,8 @@ class TransactionServiceImplTest {
     void cancelOrDelete_WhileWaitingConfirmation_ShouldFail() {
         Transaction tx = incomeWithWaitingPayment();
 
-        assertThrows(BusinessException.class, () -> transactionService.cancel(5L));
-        assertThrows(BusinessException.class, () -> transactionService.delete(5L));
+        assertThrows(BusinessException.class, () -> transactionService.cancel(5L, TestData.admin()));
+        assertThrows(BusinessException.class, () -> transactionService.delete(5L, TestData.admin()));
         assertTrue(tx.isActive());
         verify(transactionRepository, never()).delete(any());
     }
@@ -386,6 +386,56 @@ class TransactionServiceImplTest {
         org.mockito.InOrder order = inOrder(groupService);
         order.verify(groupService).lockForUpdate(10L);
         order.verify(groupService).getCurrentFund(group);
+    }
+
+    // ===================== PHÂN QUYỀN & TÀI KHOẢN NHẬN TIỀN =====================
+
+    @Test
+    void createIncome_GroupWithoutBankAccount_ShouldFail() {
+        group.setBankAccountNumber(null);
+        when(groupService.lockForUpdate(10L)).thenReturn(group);
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> transactionService.create(form("INCOME", "50000"), TestData.admin()));
+        assertTrue(e.getMessage().contains("tài khoản nhận tiền"));
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void create_InGroupOfAnotherTreasurer_ShouldFail() {
+        when(groupService.lockForUpdate(10L)).thenReturn(group); // nhóm của thủ quỹ id 1
+
+        assertThrows(BusinessException.class,
+                () -> transactionService.create(form("EXPENSE", "1000"), TestData.otherTreasurer()));
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void confirmPayment_ByAnotherTreasurer_ShouldFailBeforeTouchingPayment() {
+        when(transactionRepository.findById(5L)).thenReturn(Optional.of(TestData.income(5L, group, "100000")));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> transactionService.confirmPayment(5L, 2L, TestData.otherTreasurer()));
+        assertEquals("Bạn không quản lý nhóm này!", e.getMessage());
+        verify(participantRepository, never()).save(any());
+    }
+
+    @Test
+    void confirmPayment_BySystemAdmin_ShouldRecordConfirmer() {
+        TransactionParticipant participant = stubParticipant(TestData.income(5L, group, "100000"), member2);
+        participant.reportPaid("FT123");
+
+        transactionService.confirmPayment(5L, 2L, TestData.systemAdmin());
+
+        assertTrue(participant.isPaid());
+        assertEquals("bql", participant.getConfirmedBy().getUsername());
+        assertEquals("FT123", participant.getPaymentReference());
+    }
+
+    @Test
+    void reportPayment_ReferenceTooLong_ShouldFail() {
+        assertThrows(BusinessException.class,
+                () -> transactionService.reportPayment(5L, 2L, "x".repeat(101)));
     }
 
     // ===================== NHÓM ĐÃ ĐÓNG =====================
@@ -405,6 +455,6 @@ class TransactionServiceImplTest {
         tx.cancel();
         when(transactionRepository.findById(5L)).thenReturn(Optional.of(tx));
 
-        assertThrows(BusinessException.class, () -> transactionService.update(5L, form("INCOME", "150000")));
+        assertThrows(BusinessException.class, () -> transactionService.update(5L, form("INCOME", "150000"), TestData.admin()));
     }
 }

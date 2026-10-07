@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
+    private static final int MAX_REFERENCE_LENGTH = 100;
+
     private final TransactionRepository transactionRepository;
     private final TransactionParticipantRepository participantRepository;
     private final GroupService groupService;
@@ -32,26 +34,38 @@ public class TransactionServiceImpl implements TransactionService {
         this.groupService = groupService;
     }
 
+    // ==================== TRA CỨU (QUẢN TRỊ) ====================
+
     @Override
-    public List<Transaction> findAll() {
-        return transactionRepository.findAll();
+    public List<Transaction> findManaged(User actor) {
+        return transactionRepository.findManaged(AdminScope.adminIdOf(actor));
     }
 
     @Override
-    public Transaction getById(Long id) {
-        return transactionRepository.findById(id)
+    public Transaction getManagedTransaction(Long id, User actor) {
+        Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Giao dịch không tồn tại!"));
+        AdminScope.requireManages(transaction.getGroup(), actor);
+        return transaction;
     }
+
+    @Override
+    public long countManagedByType(User actor, String type) {
+        return transactionRepository.countManagedByType(AdminScope.adminIdOf(actor), type);
+    }
+
+    // ==================== TẠO / SỬA / HỦY / XÓA ====================
 
     @Override
     @Transactional
-    public Transaction create(TransactionForm form, User creator) {
+    public Transaction create(TransactionForm form, User actor) {
         if (form.getGroupId() == null) {
             throw new BusinessException("Vui lòng chọn nhóm!");
         }
         // Khóa dòng của nhóm tới hết transaction: hai yêu cầu chi cùng lúc phải chờ nhau,
         // không thể cùng đọc một số dư cũ rồi cùng vượt qua bước kiểm tra quỹ
         Group group = groupService.lockForUpdate(form.getGroupId());
+        AdminScope.requireManages(group, actor);
         if (!group.isActive()) {
             throw new BusinessException("Nhóm đã đóng, không thể tạo giao dịch mới!");
         }
@@ -60,6 +74,9 @@ public class TransactionServiceImpl implements TransactionService {
 
         List<User> payers = List.of();
         if (Transaction.TYPE_INCOME.equals(type)) {
+            if (!group.hasBankAccount()) {
+                throw new BusinessException("Nhóm chưa có tài khoản nhận tiền. Hãy khai báo trong phần sửa nhóm trước khi thu.");
+            }
             if (group.getMembers().isEmpty()) {
                 throw new BusinessException("Nhóm chưa có thành viên nào để thu tiền!");
             }
@@ -72,7 +89,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Transaction transaction = new Transaction(form.getTitle().trim(), form.getDescription(), form.getAmount(),
-                type, group, creator, parseDueDate(form.getDueDate()));
+                type, group, actor, parseDueDate(form.getDueDate()));
         transactionRepository.save(transaction);
 
         for (User payer : payers) {
@@ -83,8 +100,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    public void update(Long id, TransactionForm form) {
-        Transaction transaction = getById(id);
+    public void update(Long id, TransactionForm form, User actor) {
+        Transaction transaction = getManagedTransaction(id, actor);
         if (transaction.isCancelled()) {
             throw new BusinessException("Giao dịch đã hủy, không thể sửa!");
         }
@@ -93,9 +110,8 @@ public class TransactionServiceImpl implements TransactionService {
         }
         validateCommonFields(form);
         boolean amountChanged = form.getAmount().compareTo(transaction.getAmount()) != 0;
-        if (amountChanged && transaction.countWaitingConfirmations() > 0) {
-            throw new BusinessException("Còn " + transaction.countWaitingConfirmations()
-                    + " khoản đã báo chuyển đang chờ xác nhận. Hãy xác nhận/từ chối trước khi đổi số tiền.");
+        if (amountChanged) {
+            ensureNoWaitingConfirmations(transaction, "đổi số tiền");
         }
         if (transaction.isExpense()) {
             // Khóa nhóm rồi hoàn khoản chi cũ vào quỹ trước khi kiểm tra số tiền mới
@@ -119,55 +135,50 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public void cancel(Long id) {
-        Transaction transaction = getById(id);
+    public void cancel(Long id, User actor) {
+        Transaction transaction = getManagedTransaction(id, actor);
         if (transaction.isCancelled()) {
             throw new BusinessException("Giao dịch đã được hủy trước đó!");
         }
         if (transaction.isIncome() && !transaction.isActive()) {
             throw new BusinessException("Khoản thu đã thu đủ, không thể hủy!");
         }
-        ensureNoWaitingConfirmations(transaction, "hủy");
+        ensureNoWaitingConfirmations(transaction, "hủy giao dịch");
         transaction.cancel();
         transactionRepository.save(transaction);
     }
 
     @Override
-    public void delete(Long id) {
-        Transaction transaction = getById(id);
+    public void delete(Long id, User actor) {
+        Transaction transaction = getManagedTransaction(id, actor);
         if (transaction.isExpense() || transaction.hasConfirmedPayments()) {
             throw new BusinessException("Giao dịch đã phát sinh tiền nên không thể xóa. Hãy dùng \"Hủy\" để giữ lại lịch sử.");
         }
-        ensureNoWaitingConfirmations(transaction, "xóa");
+        ensureNoWaitingConfirmations(transaction, "xóa giao dịch");
         transactionRepository.delete(transaction);
-    }
-
-    // Tiền đã báo chuyển phải được thủ quỹ xử lý trước, nếu không sẽ mất dấu khoản tiền đó
-    private void ensureNoWaitingConfirmations(Transaction transaction, String action) {
-        long waiting = transaction.countWaitingConfirmations();
-        if (waiting > 0) {
-            throw new BusinessException("Còn " + waiting + " khoản đã báo chuyển đang chờ xác nhận. "
-                    + "Hãy xác nhận/từ chối trước khi " + action + " giao dịch.");
-        }
     }
 
     // ==================== QUY TRÌNH ĐÓNG TIỀN ====================
 
     @Override
-    public void reportPayment(Long transactionId, Long userId) {
+    public void reportPayment(Long transactionId, Long userId, String reference) {
+        if (reference != null && reference.trim().length() > MAX_REFERENCE_LENGTH) {
+            throw new BusinessException("Mã giao dịch / ghi chú tối đa " + MAX_REFERENCE_LENGTH + " ký tự!");
+        }
         TransactionParticipant participant = getOpenParticipant(transactionId, userId);
         if (participant.isWaitingConfirmation()) {
             throw new BusinessException("Bạn đã báo chuyển tiền, đang chờ thủ quỹ xác nhận!");
         }
-        participant.reportPaid();
+        participant.reportPaid(reference);
         participantRepository.save(participant);
     }
 
     @Override
     @Transactional
-    public void confirmPayment(Long transactionId, Long userId) {
+    public void confirmPayment(Long transactionId, Long userId, User actor) {
+        getManagedTransaction(transactionId, actor);
         TransactionParticipant participant = getOpenParticipant(transactionId, userId);
-        participant.confirmPaid();
+        participant.confirmPaid(actor);
         participantRepository.save(participant);
 
         Transaction transaction = participant.getTransaction();
@@ -176,7 +187,8 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public void rejectPayment(Long transactionId, Long userId) {
+    public void rejectPayment(Long transactionId, Long userId, User actor) {
+        getManagedTransaction(transactionId, actor);
         TransactionParticipant participant = getOpenParticipant(transactionId, userId);
         if (!participant.isWaitingConfirmation()) {
             throw new BusinessException("Thành viên này chưa báo chuyển tiền!");
@@ -185,21 +197,7 @@ public class TransactionServiceImpl implements TransactionService {
         participantRepository.save(participant);
     }
 
-    // Khoản đóng góp còn mở: thuộc khoản thu đang thu và chưa được xác nhận
-    private TransactionParticipant getOpenParticipant(Long transactionId, Long userId) {
-        Transaction transaction = getById(transactionId);
-        if (!transaction.isIncome() || !transaction.isActive()) {
-            throw new BusinessException("Khoản thu này không còn nhận đóng tiền!");
-        }
-        TransactionParticipant participant = participantRepository.findByTransaction_IdAndUser_Id(transactionId, userId)
-                .orElseThrow(() -> new BusinessException("Không có trong danh sách cần đóng của khoản thu này!"));
-        if (participant.isPaid()) {
-            throw new BusinessException("Khoản này đã được xác nhận đóng tiền rồi!");
-        }
-        return participant;
-    }
-
-    // ==================== TRUY VẤN ====================
+    // ==================== PHÍA THÀNH VIÊN ====================
 
     @Override
     public List<Transaction> findPendingIncomeForUser(Long userId) {
@@ -228,17 +226,31 @@ public class TransactionServiceImpl implements TransactionService {
         return participantRepository.findByUser_IdAndPaidTrue(userId);
     }
 
-    @Override
-    public long countAll() {
-        return transactionRepository.count();
-    }
-
-    @Override
-    public long countByType(String type) {
-        return transactionRepository.countByType(type);
-    }
-
     // ==================== HÀM PHỤ ====================
+
+    // Khoản đóng góp còn mở: thuộc khoản thu đang thu và chưa được xác nhận
+    private TransactionParticipant getOpenParticipant(Long transactionId, Long userId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new BusinessException("Giao dịch không tồn tại!"));
+        if (!transaction.isIncome() || !transaction.isActive()) {
+            throw new BusinessException("Khoản thu này không còn nhận đóng tiền!");
+        }
+        TransactionParticipant participant = participantRepository.findByTransaction_IdAndUser_Id(transactionId, userId)
+                .orElseThrow(() -> new BusinessException("Không có trong danh sách cần đóng của khoản thu này!"));
+        if (participant.isPaid()) {
+            throw new BusinessException("Khoản này đã được xác nhận đóng tiền rồi!");
+        }
+        return participant;
+    }
+
+    // Tiền đã báo chuyển phải được thủ quỹ xử lý trước, nếu không sẽ mất dấu khoản tiền đó
+    private void ensureNoWaitingConfirmations(Transaction transaction, String action) {
+        long waiting = transaction.countWaitingConfirmations();
+        if (waiting > 0) {
+            throw new BusinessException("Còn " + waiting + " khoản đã báo chuyển đang chờ xác nhận. "
+                    + "Hãy xác nhận/từ chối trước khi " + action + ".");
+        }
+    }
 
     private String normalizeType(String type) {
         if (Transaction.TYPE_INCOME.equalsIgnoreCase(type)) return Transaction.TYPE_INCOME;

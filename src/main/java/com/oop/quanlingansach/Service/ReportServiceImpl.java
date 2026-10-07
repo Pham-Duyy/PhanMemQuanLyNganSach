@@ -10,7 +10,6 @@ import com.oop.quanlingansach.Model.User;
 import com.oop.quanlingansach.Repository.GroupRepository;
 import com.oop.quanlingansach.Repository.TransactionParticipantRepository;
 import com.oop.quanlingansach.Repository.TransactionRepository;
-import com.oop.quanlingansach.Repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -20,18 +19,15 @@ import java.util.Map;
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final TransactionRepository transactionRepository;
     private final TransactionParticipantRepository participantRepository;
     private final GroupService groupService;
 
-    public ReportServiceImpl(UserRepository userRepository,
-                             GroupRepository groupRepository,
+    public ReportServiceImpl(GroupRepository groupRepository,
                              TransactionRepository transactionRepository,
                              TransactionParticipantRepository participantRepository,
                              GroupService groupService) {
-        this.userRepository = userRepository;
         this.groupRepository = groupRepository;
         this.transactionRepository = transactionRepository;
         this.participantRepository = participantRepository;
@@ -39,25 +35,30 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
-    public ReportOverview getOverview() {
+    public ReportOverview getOverview(User actor) {
+        Long adminId = AdminScope.adminIdOf(actor);
         return new ReportOverview(
-                groupRepository.count(),
-                transactionRepository.count(),
-                userRepository.countByRole(User.Role.USER),
-                participantRepository.countByPaidTrue(),
-                participantRepository.countWaitingConfirmation(),
-                participantRepository.countUnpaid(),
-                groupRepository.sumInitialFunds(),
-                participantRepository.sumAllPaid(),
-                participantRepository.sumOutstanding(),
-                transactionRepository.sumAllExpenses());
+                groupRepository.countManaged(adminId),
+                transactionRepository.countManaged(adminId),
+                groupRepository.countMembersOfManaged(adminId),
+                participantRepository.countPaid(adminId),
+                participantRepository.countWaitingConfirmation(adminId),
+                participantRepository.countUnpaid(adminId),
+                groupRepository.sumInitialFunds(adminId),
+                participantRepository.sumPaid(adminId),
+                participantRepository.sumOutstanding(adminId),
+                transactionRepository.sumManagedExpenses(adminId));
     }
 
     @Override
-    public ContributionReport getContributionReport(Long groupId) {
-        List<TransactionParticipant> participants = groupId != null
-                ? participantRepository.findByTransaction_Group_Id(groupId)
-                : participantRepository.findAll();
+    public ContributionReport getContributionReport(Long groupId, User actor) {
+        List<TransactionParticipant> participants;
+        if (groupId != null) {
+            groupService.getManagedGroup(groupId, actor); // nhóm phải thuộc phạm vi quản lý
+            participants = participantRepository.findByTransaction_Group_Id(groupId);
+        } else {
+            participants = participantRepository.findManaged(AdminScope.adminIdOf(actor));
+        }
 
         List<Map<String, Object>> rows = participants.stream().map(this::toContributionRow).toList();
         // Tổng tiền = tiền đã thu thật (đã xác nhận), không cộng các khoản mới chỉ là dự kiến

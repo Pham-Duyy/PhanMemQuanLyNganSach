@@ -53,6 +53,15 @@ public class TransactionParticipant {
     @Column(name = "reported_date")
     private LocalDateTime reportedDate;
 
+    // Mã giao dịch / ghi chú user khai khi báo chuyển, để thủ quỹ đối chiếu sao kê ngân hàng
+    @Column(name = "payment_reference", length = 100)
+    private String paymentReference;
+
+    // Người đã xác nhận nhận tiền (phục vụ đối soát)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "confirmed_by")
+    private User confirmedBy;
+
     public TransactionParticipant() {}
 
     public TransactionParticipant(Transaction transaction, User user, BigDecimal amount) {
@@ -68,23 +77,26 @@ public class TransactionParticipant {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** User báo đã chuyển tiền, chờ thủ quỹ kiểm tra. */
-    public void reportPaid() {
+    /** User báo đã chuyển tiền (kèm mã giao dịch nếu có), chờ thủ quỹ kiểm tra. */
+    public void reportPaid(String reference) {
         requireNotPaid();
         this.reportedDate = LocalDateTime.now();
+        this.paymentReference = (reference == null || reference.isBlank()) ? null : reference.trim();
     }
 
-    /** Thủ quỹ xác nhận đã nhận tiền (chuyển khoản hoặc tiền mặt). */
-    public void confirmPaid() {
+    /** Thủ quỹ xác nhận đã nhận tiền (chuyển khoản hoặc tiền mặt); ghi lại người xác nhận. */
+    public void confirmPaid(User confirmer) {
         requireNotPaid();
         this.paid = true;
         this.paidDate = LocalDateTime.now();
+        this.confirmedBy = confirmer;
     }
 
     /** Thủ quỹ không thấy tiền về: trả lại trạng thái "Chưa đóng" để user chuyển lại. */
     public void rejectReport() {
         requireNotPaid();
         this.reportedDate = null;
+        this.paymentReference = null;
     }
 
     /** User đã báo chuyển nhưng thủ quỹ chưa xác nhận. */
@@ -130,4 +142,8 @@ public class TransactionParticipant {
     public LocalDateTime getPaidDate() { return paidDate; }
 
     public LocalDateTime getReportedDate() { return reportedDate; }
+
+    public String getPaymentReference() { return paymentReference; }
+
+    public User getConfirmedBy() { return confirmedBy; }
 }

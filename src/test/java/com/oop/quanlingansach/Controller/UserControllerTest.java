@@ -40,7 +40,7 @@ class UserControllerTest {
     void dashboard_ShouldShowPaidTotals() throws Exception {
         var group = TestData.group(10L, TestData.member(2L));
         var paid = new TransactionParticipant(TestData.income(5L, group, "100000"), TestData.member(2L), new BigDecimal("100000"));
-        paid.confirmPaid();
+        paid.confirmPaid(TestData.admin());
         when(transactionService.findPaidContributionsOfUser(2L)).thenReturn(List.of(paid));
         when(groupService.findGroupsOfMember(2L)).thenReturn(List.of(group));
 

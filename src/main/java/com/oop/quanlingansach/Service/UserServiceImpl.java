@@ -2,6 +2,7 @@ package com.oop.quanlingansach.Service;
 
 import com.oop.quanlingansach.Dto.RegisterForm;
 import com.oop.quanlingansach.Model.User;
+import com.oop.quanlingansach.Repository.GroupRepository;
 import com.oop.quanlingansach.Repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,9 +22,11 @@ public class UserServiceImpl implements UserService {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, GroupRepository groupRepository) {
         this.userRepository = userRepository;
+        this.groupRepository = groupRepository;
     }
 
     @Override
@@ -110,9 +113,61 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByRole(User.Role.USER);
     }
 
+    // ==================== BAN QUẢN LÝ ====================
+
     @Override
-    public long countNormalUsers() {
-        return userRepository.countByRole(User.Role.USER);
+    public List<User> findAllUsers() {
+        return userRepository.findAllByOrderByRoleAscUsernameAsc();
+    }
+
+    @Override
+    public List<User> findActiveTreasurers() {
+        return userRepository.findByRoleIn(List.of(User.Role.SYSTEM_ADMIN, User.Role.ADMIN)).stream()
+                .filter(User::isActive)
+                .toList();
+    }
+
+    @Override
+    public void changeRole(Long targetId, User.Role newRole, User actor) {
+        User target = getManageableAccount(targetId, actor);
+        if (newRole != User.Role.USER && newRole != User.Role.ADMIN) {
+            throw new BusinessException("Chỉ có thể chuyển giữa Thành viên và Thủ quỹ!");
+        }
+        if (target.getRole() == newRole) {
+            return;
+        }
+        if (newRole == User.Role.USER && groupRepository.countByAdminId(targetId) > 0) {
+            throw new BusinessException(target.getFullName() + " đang là thủ quỹ của "
+                    + groupRepository.countByAdminId(targetId) + " nhóm. Hãy bàn giao các nhóm trước khi thu hồi quyền.");
+        }
+        if (newRole == User.Role.ADMIN && !groupRepository.findByMembers_Id(targetId).isEmpty()) {
+            throw new BusinessException(target.getFullName() + " đang là thành viên của nhóm. "
+                    + "Hãy cho rời khỏi các nhóm trước khi bổ nhiệm làm thủ quỹ.");
+        }
+        target.setRole(newRole);
+        userRepository.save(target);
+    }
+
+    @Override
+    public void setActive(Long targetId, boolean active, User actor) {
+        User target = getManageableAccount(targetId, actor);
+        target.setActive(active);
+        userRepository.save(target);
+    }
+
+    // Ban quản lý chỉ được thao tác trên tài khoản khác, không phải ban quản lý
+    private User getManageableAccount(Long targetId, User actor) {
+        if (!actor.isSystemAdmin()) {
+            throw new BusinessException("Chỉ ban quản lý mới được quản lý tài khoản!");
+        }
+        if (actor.getId().equals(targetId)) {
+            throw new BusinessException("Không thể tự thay đổi quyền hoặc khóa tài khoản của chính mình!");
+        }
+        User target = getById(targetId);
+        if (target.isSystemAdmin()) {
+            throw new BusinessException("Không thể thay đổi tài khoản ban quản lý khác!");
+        }
+        return target;
     }
 
     // So khớp mật khẩu; tài khoản cũ còn lưu mật khẩu thô sẽ được băm lại ngay khi đăng nhập đúng

@@ -70,6 +70,9 @@ class FundIntegrationTest {
         member = userRepository.save(newUser("member", User.Role.USER));
         Group g = new Group("Quỹ lớp", null, admin.getId());
         g.setFundAmount(new BigDecimal("1000000"));
+        g.setBankName("Vietcombank");
+        g.setBankAccountNumber("0123456789");
+        g.setBankAccountName("NGUYEN VAN A");
         g.addMember(member);
         group = groupRepository.save(g);
     }
@@ -123,15 +126,15 @@ class FundIntegrationTest {
         Transaction income = transactionService.create(form, admin);
 
         // User báo đã chuyển: chưa được tính vào quỹ
-        transactionService.reportPayment(income.getId(), member.getId());
+        transactionService.reportPayment(income.getId(), member.getId(), "FT123");
         assertEquals(0, groupService.getCurrentFund(group).compareTo(new BigDecimal("1000000")));
         assertEquals(java.util.Set.of(income.getId()), transactionService.findWaitingConfirmationIds(member.getId()));
 
         // Thủ quỹ xác nhận: tiền vào quỹ và khoản thu tự hoàn thành (chỉ có 1 người phải đóng)
-        transactionService.confirmPayment(income.getId(), member.getId());
+        transactionService.confirmPayment(income.getId(), member.getId(), admin);
         assertEquals(0, groupService.getCurrentFund(group).compareTo(new BigDecimal("1200000")));
         assertEquals(Transaction.STATUS_COMPLETED, transactionRepository.findById(income.getId()).orElseThrow().getStatus());
-        assertEquals(0, participantRepository.sumAllPaid().compareTo(new BigDecimal("200000")));
+        assertEquals(0, participantRepository.sumPaid(null).compareTo(new BigDecimal("200000")));
         assertTrue(transactionService.findPendingIncomeForUser(member.getId()).isEmpty());
     }
 

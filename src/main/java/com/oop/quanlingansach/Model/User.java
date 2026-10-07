@@ -2,18 +2,23 @@ package com.oop.quanlingansach.Model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Tài khoản đăng nhập. ADMIN quản lý nhóm/giao dịch, USER là thành viên đóng quỹ.
+ * Tài khoản đăng nhập. Quỹ do một tổ chức quản lý theo 3 cấp:
+ *  - SYSTEM_ADMIN: ban quản lý tổ chức — bổ nhiệm thủ quỹ, khóa tài khoản, giám sát mọi nhóm
+ *  - ADMIN       : thủ quỹ — chỉ quản lý các nhóm được giao (group.adminId)
+ *  - USER        : thành viên — tham gia nhóm và đóng quỹ
  */
 @Entity
 @Table(name = "users")
 public class User {
 
-    public enum Role { ADMIN, USER }
+    public enum Role { SYSTEM_ADMIN, ADMIN, USER }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,8 +38,10 @@ public class User {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    // Lưu dạng VARCHAR (không dùng kiểu ENUM của MySQL) để thêm vai trò mới không cần sửa cấu trúc bảng
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
     private Role role;
 
     @Column(name = "created_date")
@@ -45,8 +52,22 @@ public class User {
 
     public User() {}
 
+    /** Được vào khu vực quản trị (/admin): thủ quỹ hoặc ban quản lý. */
     public boolean isAdmin() {
-        return role == Role.ADMIN;
+        return role == Role.ADMIN || role == Role.SYSTEM_ADMIN;
+    }
+
+    public boolean isSystemAdmin() {
+        return role == Role.SYSTEM_ADMIN;
+    }
+
+    /** Tên vai trò hiển thị trên giao diện. */
+    public String getRoleLabel() {
+        return switch (role) {
+            case SYSTEM_ADMIN -> "Ban quản lý";
+            case ADMIN -> "Thủ quỹ";
+            case USER -> "Thành viên";
+        };
     }
 
     public Long getId() { return id; }

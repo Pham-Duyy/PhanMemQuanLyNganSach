@@ -59,7 +59,7 @@ class GroupAdminControllerTest {
     // ===================== XEM =====================
     @Test
     void list_ShouldRenderWithSearchResult() throws Exception {
-        when(groupService.search("Java")).thenReturn(List.of(group));
+        when(groupService.findManaged(any(), eq("Java"))).thenReturn(List.of(group));
         when(userService.findNormalUsers()).thenReturn(List.of(TestData.member(2L)));
 
         mockMvc.perform(get("/admin/groups").session(adminSession).param("keyword", "Java"))
@@ -70,9 +70,10 @@ class GroupAdminControllerTest {
 
     @Test
     void detail_ShouldRenderWithFundAndInvitableUsers() throws Exception {
-        when(groupService.getById(10L)).thenReturn(group);
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
         when(groupService.getCurrentFund(group)).thenReturn(new BigDecimal("250000"));
         when(inviteService.findInvitableUsers(10L)).thenReturn(List.of(TestData.member(3L)));
+        when(userService.getById(1L)).thenReturn(TestData.admin());
 
         mockMvc.perform(get("/admin/groups/10").session(adminSession))
                 .andExpect(status().isOk())
@@ -82,7 +83,7 @@ class GroupAdminControllerTest {
 
     @Test
     void detail_NotFound_ShouldGoBackToList() throws Exception {
-        when(groupService.getById(99L)).thenThrow(new BusinessException("Nhóm không tồn tại!"));
+        when(groupService.getManagedGroup(eq(99L), any())).thenThrow(new BusinessException("Nhóm không tồn tại!"));
 
         mockMvc.perform(get("/admin/groups/99").session(adminSession))
                 .andExpect(redirectedUrl("/admin/groups"))
@@ -93,7 +94,7 @@ class GroupAdminControllerTest {
     void json_ShouldReturnOnlyFormFields() throws Exception {
         group.getMembers().get(0).setPassword("secret123");
         group.setFundAmount(new BigDecimal("500000"));
-        when(groupService.getById(10L)).thenReturn(group);
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
 
         mockMvc.perform(get("/admin/groups/10/json").session(adminSession))
                 .andExpect(status().isOk())
@@ -105,7 +106,7 @@ class GroupAdminControllerTest {
 
     @Test
     void json_NotFound_ShouldReturn404() throws Exception {
-        when(groupService.getById(99L)).thenThrow(new BusinessException("Nhóm không tồn tại!"));
+        when(groupService.getManagedGroup(eq(99L), any())).thenThrow(new BusinessException("Nhóm không tồn tại!"));
 
         mockMvc.perform(get("/admin/groups/99/json").session(adminSession))
                 .andExpect(status().isNotFound());
@@ -118,7 +119,7 @@ class GroupAdminControllerTest {
                 .andExpect(redirectedUrl("/admin/groups"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(groupService).create(argThat(form -> "Nhóm Mới".equals(form.getName())), eq(1L));
+        verify(groupService).create(argThat(form -> "Nhóm Mới".equals(form.getName())), argThat((User u) -> u.getId() == 1L));
         verifyNoInteractions(inviteService);
     }
 
@@ -127,7 +128,7 @@ class GroupAdminControllerTest {
         mockMvc.perform(post("/admin/groups/10/edit").with(csrf()).session(adminSession).param("name", "Tên Mới"))
                 .andExpect(redirectedUrl("/admin/groups"));
 
-        verify(groupService).update(eq(10L), argThat(form -> "Tên Mới".equals(form.getName())));
+        verify(groupService).update(eq(10L), argThat(form -> "Tên Mới".equals(form.getName())), any());
     }
 
     @Test
@@ -135,7 +136,7 @@ class GroupAdminControllerTest {
         mockMvc.perform(post("/admin/groups/10/delete").with(csrf()).session(adminSession))
                 .andExpect(redirectedUrl("/admin/groups"));
 
-        verify(groupService).delete(10L);
+        verify(groupService).delete(eq(10L), any());
     }
 
     // ===================== PHÂN QUYỀN =====================
@@ -143,7 +144,7 @@ class GroupAdminControllerTest {
     void delete_NotLoggedIn_ShouldBeBlocked() throws Exception {
         mockMvc.perform(post("/admin/groups/10/delete").with(csrf())).andExpect(redirectedUrl("/login"));
 
-        verify(groupService, never()).delete(anyLong());
+        verify(groupService, never()).delete(anyLong(), any());
     }
 
     @Test
@@ -151,14 +152,14 @@ class GroupAdminControllerTest {
         mockMvc.perform(post("/admin/groups/10/delete").with(csrf()).session(TestData.sessionOf(TestData.member(2L))))
                 .andExpect(redirectedUrl("/"));
 
-        verify(groupService, never()).delete(anyLong());
+        verify(groupService, never()).delete(anyLong(), any());
     }
 
     // ===================== MỜI / XÓA THÀNH VIÊN =====================
     @Test
     void inviteFromDetail_Success_ShouldReturnToDetail() throws Exception {
         User invited = TestData.member(3L);
-        when(inviteService.invite(10L, 3L)).thenReturn(invited);
+        when(inviteService.invite(eq(10L), eq(3L), any())).thenReturn(invited);
 
         mockMvc.perform(post("/admin/groups/10/members/add").with(csrf()).session(adminSession).param("userId", "3"))
                 .andExpect(redirectedUrl("/admin/groups/10"))
@@ -167,7 +168,7 @@ class GroupAdminControllerTest {
 
     @Test
     void inviteFromList_Error_ShouldShowMessage() throws Exception {
-        when(inviteService.invite(10L, 1L)).thenThrow(new BusinessException("Chỉ có thể mời tài khoản người dùng thường!"));
+        when(inviteService.invite(eq(10L), eq(1L), any())).thenThrow(new BusinessException("Chỉ có thể mời tài khoản người dùng thường!"));
 
         mockMvc.perform(post("/admin/groups/10/invite-user").with(csrf()).session(adminSession).param("userId", "1"))
                 .andExpect(redirectedUrl("/admin/groups"))
@@ -179,6 +180,51 @@ class GroupAdminControllerTest {
         mockMvc.perform(post("/admin/groups/10/members/2/remove").with(csrf()).session(adminSession))
                 .andExpect(redirectedUrl("/admin/groups/10"));
 
-        verify(groupService).removeMember(10L, 2L);
+        verify(groupService).removeMember(eq(10L), eq(2L), any());
+    }
+
+    // ===================== BÀN GIAO THỦ QUỸ =====================
+
+    @Test
+    void detail_SystemAdmin_ShouldSeeTransferForm() throws Exception {
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
+        when(groupService.getCurrentFund(group)).thenReturn(BigDecimal.ZERO);
+        when(userService.getById(1L)).thenReturn(TestData.admin());
+        when(userService.findActiveTreasurers()).thenReturn(List.of(TestData.admin(), TestData.otherTreasurer()));
+
+        mockMvc.perform(get("/admin/groups/10").session(TestData.sessionOf(TestData.systemAdmin())))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/admin/groups/10/transfer")))
+                .andExpect(content().string(containsString("thuquykhac")));
+    }
+
+    @Test
+    void detail_Treasurer_ShouldNotSeeTransferForm() throws Exception {
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
+        when(groupService.getCurrentFund(group)).thenReturn(BigDecimal.ZERO);
+        when(userService.getById(1L)).thenReturn(TestData.admin());
+
+        mockMvc.perform(get("/admin/groups/10").session(adminSession))
+                .andExpect(content().string(not(containsString("/admin/groups/10/transfer"))));
+        verify(userService, never()).findActiveTreasurers();
+    }
+
+    @Test
+    void transfer_ShouldCallServiceWithLoggedInUser() throws Exception {
+        mockMvc.perform(post("/admin/groups/10/transfer").with(csrf())
+                        .session(TestData.sessionOf(TestData.systemAdmin())).param("treasurerId", "50"))
+                .andExpect(redirectedUrl("/admin/groups/10"))
+                .andExpect(flash().attributeExists("success"));
+
+        verify(groupService).transferTreasurer(eq(10L), eq(50L), argThat(User::isSystemAdmin));
+    }
+
+    @Test
+    void groupOfAnotherTreasurer_ShouldBeRejected() throws Exception {
+        when(groupService.getManagedGroup(eq(10L), any())).thenThrow(new BusinessException("Bạn không quản lý nhóm này!"));
+
+        mockMvc.perform(get("/admin/groups/10").session(TestData.sessionOf(TestData.otherTreasurer())))
+                .andExpect(redirectedUrl("/admin/groups"))
+                .andExpect(flash().attribute("error", "Bạn không quản lý nhóm này!"));
     }
 }

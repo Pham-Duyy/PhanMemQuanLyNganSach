@@ -21,8 +21,8 @@ public interface GroupInviteService {
 
     void decline(Long inviteId, Long userId);
 
-    /** Admin mời một tài khoản USER vào nhóm. Trả về user được mời. */
-    User invite(Long groupId, Long userId);
+    /** Thủ quỹ (hoặc ban quản lý) mời một tài khoản USER vào nhóm. Trả về user được mời. */
+    User invite(Long groupId, Long userId, User actor);
 
     /** Tài khoản USER chưa là thành viên và chưa có lời mời đang chờ. */
     List<User> findInvitableUsers(Long groupId);

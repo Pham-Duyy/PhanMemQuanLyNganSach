@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Tài khoản nhận tiền của một nhóm (do thủ quỹ nhóm khai báo).
+  Dùng: <div th:replace="~{fragments/bank :: bankAccount(${group})}"></div>
+-->
+<div th:fragment="bankAccount(group)" class="bank-account">
+    <div th:if="${group.hasBankAccount()}">
+        <div class="mb-2">
+            <strong><i class="fas fa-university me-1" aria-hidden="true"></i>Ngân hàng:</strong>
+            <span th:text="${group.bankName}">Ngân hàng</span>
+        </div>
+        <div class="mb-2">
+            <strong><i class="fas fa-credit-card me-1" aria-hidden="true"></i>Số tài khoản:</strong>
+            <span class="fw-bold" th:text="${group.bankAccountNumber}">0000000000</span>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-1" title="Sao chép số tài khoản"
+                    th:attr="data-copy=${group.bankAccountNumber}"
+                    onclick="navigator.clipboard.writeText(this.dataset.copy)">
+                <i class="fas fa-copy" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="mb-0">
+            <strong><i class="fas fa-user me-1" aria-hidden="true"></i>Chủ tài khoản:</strong>
+            <span th:text="${group.bankAccountName}">TÊN CHỦ TÀI KHOẢN</span>
+        </div>
+    </div>
+    <div th:unless="${group.hasBankAccount()}" class="alert alert-warning py-2 mb-0">
+        <i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>
+        Thủ quỹ chưa khai báo tài khoản nhận tiền cho nhóm này.
+    </div>
+</div>
+</body>
+</html>

@@ -10,41 +10,45 @@ import java.util.Set;
 
 /**
  * Giao dịch thu/chi của nhóm và quy trình đóng tiền:
- * user báo đã chuyển -> thủ quỹ (admin) xác nhận hoặc từ chối -> chỉ tiền đã xác nhận mới vào quỹ.
+ * thành viên báo đã chuyển -> thủ quỹ xác nhận hoặc từ chối -> chỉ tiền đã xác nhận mới vào quỹ.
+ * Các hàm có tham số actor chỉ cho thủ quỹ của nhóm hoặc ban quản lý thực hiện.
  */
 public interface TransactionService {
 
-    List<Transaction> findAll();
+    // ==================== PHÍA QUẢN TRỊ ====================
 
-    Transaction getById(Long id);
+    /** Giao dịch của các nhóm trong phạm vi quản lý, mới nhất trước. */
+    List<Transaction> findManaged(User actor);
+
+    Transaction getManagedTransaction(Long id, User actor);
 
     /**
-     * Tạo giao dịch trong nhóm đang hoạt động. Khoản thu: tạo sẵn danh sách người phải đóng.
-     * Khoản chi: chỉ cho phép khi quỹ (tiền đã xác nhận) đủ.
+     * Tạo giao dịch trong nhóm đang hoạt động. Khoản thu: nhóm phải có tài khoản nhận tiền,
+     * tạo sẵn danh sách người phải đóng. Khoản chi: chỉ cho phép khi quỹ (tiền đã xác nhận) đủ.
      */
-    Transaction create(TransactionForm form, User creator);
+    Transaction create(TransactionForm form, User actor);
 
     /** Sửa tiêu đề, mô tả, số tiền, hạn của giao dịch chưa hủy / khoản thu đang thu. */
-    void update(Long id, TransactionForm form);
+    void update(Long id, TransactionForm form, User actor);
 
     /** Hủy: khoản thu ngừng thu phần còn lại; khoản chi được hoàn lại quỹ. Lịch sử được giữ. */
-    void cancel(Long id);
+    void cancel(Long id, User actor);
 
     /** Chỉ xóa được khoản thu chưa có ai đóng; giao dịch đã phát sinh tiền phải dùng hủy. */
-    void delete(Long id);
-
-    // ==================== QUY TRÌNH ĐÓNG TIỀN ====================
-
-    /** User báo đã chuyển tiền. */
-    void reportPayment(Long transactionId, Long userId);
+    void delete(Long id, User actor);
 
     /** Thủ quỹ xác nhận đã nhận tiền của một thành viên (kể cả đóng tiền mặt chưa báo). */
-    void confirmPayment(Long transactionId, Long userId);
+    void confirmPayment(Long transactionId, Long userId, User actor);
 
     /** Thủ quỹ không thấy tiền về: trả khoản đó về trạng thái chưa đóng. */
-    void rejectPayment(Long transactionId, Long userId);
+    void rejectPayment(Long transactionId, Long userId, User actor);
 
-    // ==================== TRUY VẤN ====================
+    long countManagedByType(User actor, String type);
+
+    // ==================== PHÍA THÀNH VIÊN ====================
+
+    /** Thành viên báo đã chuyển tiền, kèm mã giao dịch / ghi chú (có thể trống). */
+    void reportPayment(Long transactionId, Long userId, String reference);
 
     /** Khoản thu user còn phải đóng (gồm cả khoản đã báo, đang chờ xác nhận). */
     List<Transaction> findPendingIncomeForUser(Long userId);
@@ -59,8 +63,4 @@ public interface TransactionService {
     List<TransactionParticipant> findContributionsOfUser(Long userId);
 
     List<TransactionParticipant> findPaidContributionsOfUser(Long userId);
-
-    long countAll();
-
-    long countByType(String type);
 }

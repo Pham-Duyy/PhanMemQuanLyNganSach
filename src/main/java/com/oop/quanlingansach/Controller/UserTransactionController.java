@@ -26,19 +26,21 @@ public class UserTransactionController {
 
     @GetMapping
     public String list(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser, Model model) {
+        model.addAttribute("currentUser", currentUser); // để hiển thị nội dung chuyển khoản riêng của user
         model.addAttribute("incomeTransactions", transactionService.findPendingIncomeForUser(currentUser.getId()));
         model.addAttribute("waitingIds", transactionService.findWaitingConfirmationIds(currentUser.getId()));
         model.addAttribute("expenseNotifications", transactionService.findExpensesForMember(currentUser.getId()));
         return "user/finance/transactions";
     }
 
-    // User báo đã chuyển tiền; tiền chỉ vào quỹ khi thủ quỹ xác nhận
+    // User báo đã chuyển tiền (kèm mã giao dịch nếu có); tiền chỉ vào quỹ khi thủ quỹ xác nhận
     @PostMapping("/{id}/confirm")
     public String reportPayment(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
                                 @PathVariable Long id,
+                                @RequestParam(required = false) String reference,
                                 RedirectAttributes redirectAttributes) {
         try {
-            transactionService.reportPayment(id, currentUser.getId());
+            transactionService.reportPayment(id, currentUser.getId(), reference);
             redirectAttributes.addFlashAttribute("success", "Đã báo chuyển tiền! Vui lòng chờ thủ quỹ xác nhận.");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

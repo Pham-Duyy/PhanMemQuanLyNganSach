@@ -28,8 +28,19 @@ public final class TestData {
         return user;
     }
 
+    /** Thủ quỹ id 1 — là thủ quỹ của các nhóm mẫu tạo bằng group(...). */
     public static User admin() {
         return user(1L, "admin", User.Role.ADMIN);
+    }
+
+    /** Ban quản lý id 90 — giám sát mọi nhóm. */
+    public static User systemAdmin() {
+        return user(90L, "bql", User.Role.SYSTEM_ADMIN);
+    }
+
+    /** Thủ quỹ id 50 — không phụ trách nhóm mẫu nào. */
+    public static User otherTreasurer() {
+        return user(50L, "thuquykhac", User.Role.ADMIN);
     }
 
     public static User member(Long id) {
@@ -40,6 +51,9 @@ public final class TestData {
         Group group = new Group("Nhóm " + id, "Mô tả nhóm", 1L);
         group.setId(id);
         group.setMembers(new ArrayList<>(List.of(members)));
+        group.setBankName("Vietcombank");
+        group.setBankAccountNumber("0123456789");
+        group.setBankAccountName("NGUYEN VAN A");
         return group;
     }
 

@@ -100,6 +100,14 @@ public class Transaction {
         return participants.stream().anyMatch(TransactionParticipant::isPaid);
     }
 
+    /**
+     * Nội dung chuyển khoản chuẩn cho một thành viên, vd. "QUY3 THU12 huypm".
+     * Thủ quỹ nhìn nội dung trên sao kê là biết tiền của ai, cho khoản thu nào.
+     */
+    public String transferNoteFor(User payer) {
+        return "QUY" + group.getId() + " THU" + id + " " + payer.getUsername();
+    }
+
     /** Còn người đã báo chuyển tiền nhưng thủ quỹ chưa xử lý. */
     public long countWaitingConfirmations() {
         return participants.stream().filter(TransactionParticipant::isWaitingConfirmation).count();

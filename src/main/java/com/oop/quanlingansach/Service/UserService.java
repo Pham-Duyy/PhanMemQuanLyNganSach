@@ -24,8 +24,20 @@ public interface UserService {
 
     void changePassword(Long id, String oldPassword, String newPassword, String confirmPassword);
 
-    /** Các tài khoản USER (không gồm ADMIN). */
+    /** Các tài khoản thành viên (USER), dùng để mời vào nhóm. */
     List<User> findNormalUsers();
 
-    long countNormalUsers();
+    // ==================== BAN QUẢN LÝ ====================
+
+    /** Mọi tài khoản, sắp theo vai trò rồi tên đăng nhập. */
+    List<User> findAllUsers();
+
+    /** Thủ quỹ đang hoạt động (ADMIN, SYSTEM_ADMIN), dùng khi bàn giao nhóm. */
+    List<User> findActiveTreasurers();
+
+    /** Bổ nhiệm (USER -> ADMIN) hoặc thu hồi (ADMIN -> USER) thủ quỹ. Chỉ ban quản lý được làm. */
+    void changeRole(Long targetId, User.Role newRole, User actor);
+
+    /** Khóa hoặc mở khóa tài khoản. Chỉ ban quản lý được làm. */
+    void setActive(Long targetId, boolean active, User actor);
 }

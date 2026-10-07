@@ -32,7 +32,7 @@
             <div class="text-muted">
                 <i class="fas fa-user me-1"></i><span th:text="${user.username}"></span>
                 <span class="badge ms-2" th:classappend="${user.admin} ? 'bg-danger' : 'bg-primary'"
-                      th:text="${user.admin} ? 'Quản trị viên' : 'Người dùng'"></span>
+                      th:text="${user.roleLabel}"></span>
             </div>
             <div class="text-muted small" th:if="${user.createdDate != null}">
                 <i class="fas fa-calendar me-1"></i>Tham gia từ

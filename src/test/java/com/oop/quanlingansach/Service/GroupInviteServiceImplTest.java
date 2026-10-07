@@ -52,10 +52,18 @@ class GroupInviteServiceImplTest {
         when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
         when(userRepository.findById(2L)).thenReturn(Optional.of(TestData.member(2L)));
 
-        User invited = inviteService.invite(10L, 2L);
+        User invited = inviteService.invite(10L, 2L, TestData.admin());
 
         assertEquals(2L, invited.getId());
         verify(inviteRepository).save(any(GroupInvite.class));
+    }
+
+    @Test
+    void invite_IntoGroupOfAnotherTreasurer_ShouldFail() {
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L))); // của thủ quỹ id 1
+
+        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L, TestData.otherTreasurer()));
+        verify(inviteRepository, never()).save(any());
     }
 
     @Test
@@ -64,7 +72,7 @@ class GroupInviteServiceImplTest {
         closed.setActive(false);
         when(groupRepository.findById(10L)).thenReturn(Optional.of(closed));
 
-        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L));
+        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L, TestData.admin()));
         verify(inviteRepository, never()).save(any());
     }
 
@@ -84,7 +92,7 @@ class GroupInviteServiceImplTest {
         when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(TestData.admin()));
 
-        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 1L));
+        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 1L, TestData.admin()));
         verify(inviteRepository, never()).save(any());
     }
 
@@ -94,7 +102,7 @@ class GroupInviteServiceImplTest {
         when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L, member)));
         when(userRepository.findById(2L)).thenReturn(Optional.of(member));
 
-        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L));
+        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L, TestData.admin()));
         verify(inviteRepository, never()).save(any());
     }
 
@@ -104,7 +112,7 @@ class GroupInviteServiceImplTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(TestData.member(2L)));
         when(inviteRepository.existsByGroup_IdAndUser_IdAndStatus(10L, 2L, GroupInvite.STATUS_PENDING)).thenReturn(true);
 
-        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L));
+        assertThrows(BusinessException.class, () -> inviteService.invite(10L, 2L, TestData.admin()));
         verify(inviteRepository, never()).save(any());
     }
 

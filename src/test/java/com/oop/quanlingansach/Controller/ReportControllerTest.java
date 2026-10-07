@@ -21,6 +21,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -46,7 +49,7 @@ class ReportControllerTest {
         // 2 nhóm, quỹ ban đầu 500k; đã thu 300k, còn phải thu 200k, đã chi 100k -> số dư 700k
         ReportOverview overview = new ReportOverview(2, 5, 3, 3, 1, 2,
                 new BigDecimal("500000"), new BigDecimal("300000"), new BigDecimal("200000"), new BigDecimal("100000"));
-        when(reportService.getOverview()).thenReturn(overview);
+        when(reportService.getOverview(any())).thenReturn(overview);
 
         mockMvc.perform(get("/admin/reports").session(TestData.sessionOf(TestData.admin())))
                 .andExpect(status().isOk())
@@ -70,7 +73,7 @@ class ReportControllerTest {
         Map<String, Object> row = Map.of("userName", "Duy", "userEmail", "duy@example.com", "groupName", "Nhóm 10",
                 "transactionDescription", "Quỹ", "transactionType", "INCOME", "amount", new BigDecimal("100000"),
                 "status", "PAID", "createdDate", LocalDateTime.now());
-        when(reportService.getContributionReport(null)).thenReturn(new ContributionReport(List.of(row), new BigDecimal("100000")));
+        when(reportService.getContributionReport(isNull(), any())).thenReturn(new ContributionReport(List.of(row), new BigDecimal("100000")));
 
         mockMvc.perform(get("/admin/reports/contributions").session(TestData.sessionOf(TestData.admin())))
                 .andExpect(status().isOk())
@@ -81,7 +84,7 @@ class ReportControllerTest {
     void expenses_WithGroup_ShouldRender() throws Exception {
         var group = TestData.group(10L, TestData.member(2L));
         group.setTargetAmount(new BigDecimal("1000000"));
-        when(groupService.getById(10L)).thenReturn(group);
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
         when(reportService.getGroupFundReport(group)).thenReturn(new GroupFundReport(new BigDecimal("300000"),
                 new BigDecimal("100000"), new BigDecimal("200000"), List.of(TestData.expense(6L, group, "100000")), List.of()));
 
@@ -92,7 +95,7 @@ class ReportControllerTest {
 
     @Test
     void expenses_UnknownGroup_ShouldRenderWithoutGroupData() throws Exception {
-        when(groupService.getById(99L)).thenThrow(new BusinessException("Nhóm không tồn tại!"));
+        when(groupService.getManagedGroup(eq(99L), any())).thenThrow(new BusinessException("Nhóm không tồn tại!"));
 
         mockMvc.perform(get("/admin/reports/expenses").session(TestData.sessionOf(TestData.admin())).param("groupId", "99"))
                 .andExpect(status().isOk())

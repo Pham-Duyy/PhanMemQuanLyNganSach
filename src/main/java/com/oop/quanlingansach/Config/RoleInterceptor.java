@@ -9,6 +9,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.support.RequestContextUtils;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Chặn request nếu chưa đăng nhập, tài khoản đã bị khóa/xóa, hoặc sai vai trò.
@@ -16,11 +17,11 @@ import java.util.Optional;
  */
 public class RoleInterceptor implements HandlerInterceptor {
 
-    private final User.Role requiredRole; // null = chỉ cần đăng nhập
+    private final Set<User.Role> allowedRoles; // rỗng = chỉ cần đăng nhập
     private final ActiveUserLoader activeUserLoader;
 
-    public RoleInterceptor(User.Role requiredRole, ActiveUserLoader activeUserLoader) {
-        this.requiredRole = requiredRole;
+    public RoleInterceptor(Set<User.Role> allowedRoles, ActiveUserLoader activeUserLoader) {
+        this.allowedRoles = allowedRoles;
         this.activeUserLoader = activeUserLoader;
     }
 
@@ -42,7 +43,7 @@ public class RoleInterceptor implements HandlerInterceptor {
         User user = current.get();
         session.setAttribute(SessionKeys.CURRENT_USER, user);
 
-        if (requiredRole != null && user.getRole() != requiredRole) {
+        if (!allowedRoles.isEmpty() && !allowedRoles.contains(user.getRole())) {
             // Sai khu vực: về trang chủ, trang chủ sẽ chuyển tới dashboard đúng vai trò
             response.sendRedirect(request.getContextPath() + "/");
             return false;

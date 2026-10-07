@@ -2,6 +2,7 @@ package com.oop.quanlingansach.Service;
 
 import com.oop.quanlingansach.Dto.RegisterForm;
 import com.oop.quanlingansach.Model.User;
+import com.oop.quanlingansach.Repository.GroupRepository;
 import com.oop.quanlingansach.Repository.UserRepository;
 import com.oop.quanlingansach.TestData;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +27,9 @@ class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private GroupRepository groupRepository;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -145,6 +150,67 @@ class UserServiceImplTest {
         assertThrows(BusinessException.class, () -> userService.register(badEmail));
         assertThrows(BusinessException.class, () -> userService.register(badUsername));
         verify(userRepository, never()).save(any());
+    }
+
+    // ===================== BAN QUẢN LÝ: QUYỀN & KHÓA TÀI KHOẢN =====================
+
+    @Test
+    void changeRole_PromoteMemberWithoutGroups_ShouldBecomeTreasurer() {
+        User member = TestData.member(2L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(groupRepository.findByMembers_Id(2L)).thenReturn(List.of());
+
+        userService.changeRole(2L, User.Role.ADMIN, TestData.systemAdmin());
+
+        assertEquals(User.Role.ADMIN, member.getRole());
+        verify(userRepository).save(member);
+    }
+
+    @Test
+    void changeRole_PromoteMemberStillInGroup_ShouldFail() {
+        when(userRepository.findById(2L)).thenReturn(Optional.of(TestData.member(2L)));
+        when(groupRepository.findByMembers_Id(2L)).thenReturn(List.of(TestData.group(10L)));
+
+        assertThrows(BusinessException.class, () -> userService.changeRole(2L, User.Role.ADMIN, TestData.systemAdmin()));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRole_DemoteTreasurerOwningGroups_ShouldFail() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(TestData.admin()));
+        when(groupRepository.countByAdminId(1L)).thenReturn(2L);
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> userService.changeRole(1L, User.Role.USER, TestData.systemAdmin()));
+        assertTrue(e.getMessage().contains("bàn giao"));
+    }
+
+    @Test
+    void changeRole_ToSystemAdmin_ShouldBeRejected() {
+        when(userRepository.findById(2L)).thenReturn(Optional.of(TestData.member(2L)));
+
+        assertThrows(BusinessException.class, () -> userService.changeRole(2L, User.Role.SYSTEM_ADMIN, TestData.systemAdmin()));
+    }
+
+    @Test
+    void accountManagement_ShouldProtectSelfAndOtherSystemAdmins() {
+        User otherSystemAdmin = TestData.user(91L, "bql2", User.Role.SYSTEM_ADMIN);
+        when(userRepository.findById(91L)).thenReturn(Optional.of(otherSystemAdmin));
+
+        assertThrows(BusinessException.class, () -> userService.setActive(90L, false, TestData.systemAdmin())); // chính mình
+        assertThrows(BusinessException.class, () -> userService.setActive(91L, false, TestData.systemAdmin())); // BQL khác
+        assertThrows(BusinessException.class, () -> userService.setActive(2L, false, TestData.admin()));        // thủ quỹ
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void setActive_LockMember_ShouldDeactivate() {
+        User member = TestData.member(2L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(member));
+
+        userService.setActive(2L, false, TestData.systemAdmin());
+
+        assertFalse(member.isActive());
     }
 
     // ===================== ĐỔI MẬT KHẨU =====================

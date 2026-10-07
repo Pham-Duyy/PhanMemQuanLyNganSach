@@ -89,17 +89,10 @@
                             <i class="fas fa-credit-card me-2"></i>Xem thông tin chuyển khoản
                         </button>
                     </div>
-                    <div class="col-md-4 text-center">
-                        <div class="qr-payment-info">
-                            <h6 class="fw-bold mb-3">💳 THÔNG TIN CHUYỂN KHOẢN</h6>
-                            <img src="/img/anh QR.jpg" alt="QR Techcombank"
-                                 style="width:120px;height:120px;border-radius:8px;border:1px solid #eee;"
-                                 class="mb-2">
-                            <div class="text-start small">
-                                <div class="mb-1"><strong>🏛️ Ngân hàng:</strong> Techcombank</div>
-                                <div class="mb-1"><strong>📧 STK:</strong> 9966504911</div>
-                                <div class="mb-1"><strong>👤 Chủ TK:</strong> PHAM KHUONG DUY</div>
-                            </div>
+                    <div class="col-md-4">
+                        <div class="qr-payment-info small">
+                            <h6 class="fw-bold mb-3">💳 TÀI KHOẢN NHẬN TIỀN CỦA NHÓM</h6>
+                            <div th:replace="~{fragments/bank :: bankAccount(${transaction.group})}"></div>
                         </div>
                     </div>
                     <!-- Modal chi tiết thanh toán đặt ngay sau từng transaction để tránh lặp nhiều lần -->
@@ -114,63 +107,46 @@
                                     </h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                                 </div>
+                                <!-- Báo đã chuyển; tiền chỉ vào quỹ khi thủ quỹ đối chiếu sao kê và xác nhận -->
+                                <form th:action="@{/user/finance/transactions/{id}/confirm(id=${transaction.id})}" method="post">
                                 <div class="modal-body">
-                                    <div class="row">
-                                        <div class="col-md-6 text-center">
-                                            <h6 class="fw-bold mb-3">Mã QR thanh toán</h6>
-                                            <img src="/img/anh QR.jpg" alt="QR Techcombank"
-                                                 style="width:250px;height:250px;border-radius:8px;border:1px solid #eee;"
-                                                 class="mb-3">
-                                            <p class="text-muted small">Quét mã QR để chuyển khoản nhanh</p>
+                                    <div class="card mb-3">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold mb-3">Chuyển khoản vào tài khoản của nhóm</h6>
+                                            <div th:replace="~{fragments/bank :: bankAccount(${transaction.group})}"></div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <h6 class="fw-bold mb-3">Thông tin chuyển khoản</h6>
-                                            <div class="card">
-                                                <div class="card-body">
-                                                    <div class="mb-3">
-                                                        <strong>🏛️ Ngân hàng:</strong><br>
-                                                        <span class="text-primary">Techcombank</span>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <strong>📧 Số tài khoản:</strong><br>
-                                                        <span class="text-primary fw-bold">9966504911</span>
-                                                        <button class="btn btn-sm btn-outline-primary ms-2" type="button" onclick="copyToClipboard('9966504911')">
-                                                            <i class="fas fa-copy"></i>
-                                                        </button>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <strong>👤 Chủ tài khoản:</strong><br>
-                                                        <span class="text-primary">PHAM KHUONG DUY</span>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <strong>💰 Số tiền:</strong><br>
-                                                        <span class="text-success fw-bold fs-5">
-                                                            <span th:text="${#numbers.formatDecimal(transaction.amount, 0, 'COMMA', 0, 'POINT')}"></span> VNĐ
-                                                        </span>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <strong>📝 Nội dung chuyển khoản:</strong><br>
-                                                        <span class="text-info" th:text="${transaction.title}"></span>
-                                                        <button class="btn btn-sm btn-outline-info ms-2" type="button"
-                                                                th:attr="data-title=${transaction.title}"
-                                                                onclick="copyToClipboard(this.getAttribute('data-title'))">
-                                                            <i class="fas fa-copy"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>💰 Số tiền:</strong>
+                                        <span class="text-success fw-bold fs-5">
+                                            <span th:text="${#numbers.formatDecimal(transaction.amount, 0, 'COMMA', 0, 'POINT')}"></span> VNĐ
+                                        </span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>📝 Nội dung chuyển khoản (ghi đúng để thủ quỹ đối chiếu):</strong><br>
+                                        <code class="fs-6" th:text="${transaction.transferNoteFor(currentUser)}">QUY1 THU1 username</code>
+                                        <button class="btn btn-sm btn-outline-info ms-2" type="button" title="Sao chép nội dung"
+                                                th:attr="data-copy=${transaction.transferNoteFor(currentUser)}"
+                                                onclick="navigator.clipboard.writeText(this.dataset.copy)">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <label class="form-label" th:for="'reference' + ${transaction.id}">
+                                            Mã giao dịch ngân hàng / ghi chú <span class="text-muted">(không bắt buộc)</span>
+                                        </label>
+                                        <input type="text" class="form-control" name="reference" maxlength="100"
+                                               th:id="'reference' + ${transaction.id}"
+                                               placeholder="VD: FT24123456789 hoặc 'đã đưa tiền mặt cho thủ quỹ'">
                                     </div>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                    <!-- Báo đã chuyển; tiền chỉ vào quỹ khi thủ quỹ xác nhận -->
-                                    <form th:action="@{/user/finance/transactions/{id}/confirm(id=${transaction.id})}" method="post" class="d-inline">
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="fas fa-paper-plane me-2"></i>Tôi đã chuyển tiền
-                                        </button>
-                                    </form>
+                                    <button type="submit" class="btn btn-success" th:disabled="${!transaction.group.hasBankAccount()}">
+                                        <i class="fas fa-paper-plane me-2"></i>Tôi đã chuyển tiền
+                                    </button>
                                 </div>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -238,14 +214,6 @@
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(function() {
-            alert('Đã sao chép: ' + text);
-        }, function(err) {
-            console.error('Không thể sao chép: ', err);
-        });
-    }
-
     // Ẩn thông báo thành công sau 2.5 giây
     document.addEventListener('DOMContentLoaded', function() {
         var alertBox = document.getElementById('successAlert');

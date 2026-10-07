@@ -41,7 +41,7 @@ class PersonalFinanceControllerTest {
         var member = TestData.member(2L);
         var group = TestData.group(10L, member);
         var paid = new TransactionParticipant(TestData.income(5L, group, "100000"), member, new BigDecimal("100000"));
-        paid.confirmPaid();
+        paid.confirmPaid(TestData.admin());
         var unpaid = new TransactionParticipant(TestData.income(6L, group, "40000"), member, new BigDecimal("40000"));
         when(transactionService.findContributionsOfUser(2L)).thenReturn(List.of(paid, unpaid));
 

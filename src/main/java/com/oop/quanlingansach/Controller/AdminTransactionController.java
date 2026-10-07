@@ -16,7 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.util.List;
 
 /**
- * Admin quản lý giao dịch thu/chi của các nhóm.
+ * Quản lý giao dịch thu/chi và xác nhận tiền, trong các nhóm thuộc phạm vi quản lý.
  */
 @Controller
 @RequestMapping("/admin/finance/transactions")
@@ -33,17 +33,18 @@ public class AdminTransactionController {
     }
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("transactions", transactionService.findAll());
-        model.addAttribute("groups", groupService.findAll());
+    public String list(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser, Model model) {
+        model.addAttribute("transactions", transactionService.findManaged(currentUser));
+        model.addAttribute("groups", groupService.findManaged(currentUser, null));
         return "admin/finance/transactions";
     }
 
     @GetMapping("/detail/{id}")
-    public String detail(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
+    public String detail(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
         Transaction transaction;
         try {
-            transaction = transactionService.getById(id);
+            transaction = transactionService.getManagedTransaction(id, currentUser);
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return LIST_PAGE;
@@ -66,9 +67,10 @@ public class AdminTransactionController {
     // Danh sách thành viên nhóm cho ô "chọn người phải đóng" (AJAX)
     @GetMapping("/group/{groupId}/members")
     @ResponseBody
-    public List<User> groupMembers(@PathVariable Long groupId) {
+    public List<User> groupMembers(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                   @PathVariable Long groupId) {
         try {
-            return groupService.getById(groupId).getMembers();
+            return groupService.getManagedGroup(groupId, currentUser).getMembers();
         } catch (BusinessException e) {
             return List.of();
         }
@@ -90,10 +92,11 @@ public class AdminTransactionController {
     }
 
     @PostMapping("/{id}/update")
-    public String update(@PathVariable Long id, @ModelAttribute TransactionForm form,
+    public String update(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, @ModelAttribute TransactionForm form,
                          RedirectAttributes redirectAttributes) {
         try {
-            transactionService.update(id, form);
+            transactionService.update(id, form, currentUser);
             redirectAttributes.addFlashAttribute("success", "Cập nhật giao dịch thành công!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -102,9 +105,10 @@ public class AdminTransactionController {
     }
 
     @PostMapping("/{id}/cancel")
-    public String cancel(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    public String cancel(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, RedirectAttributes redirectAttributes) {
         try {
-            transactionService.cancel(id);
+            transactionService.cancel(id, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã hủy giao dịch! Lịch sử vẫn được giữ lại.");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -113,9 +117,10 @@ public class AdminTransactionController {
     }
 
     @PostMapping("/{id}/delete")
-    public String delete(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    public String delete(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, RedirectAttributes redirectAttributes) {
         try {
-            transactionService.delete(id);
+            transactionService.delete(id, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã xóa giao dịch!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -126,10 +131,11 @@ public class AdminTransactionController {
     // ==================== THỦ QUỸ XÁC NHẬN TIỀN ====================
 
     @PostMapping("/{id}/participants/{userId}/confirm")
-    public String confirmPayment(@PathVariable Long id, @PathVariable Long userId,
+    public String confirmPayment(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                 @PathVariable Long id, @PathVariable Long userId,
                                  RedirectAttributes redirectAttributes) {
         try {
-            transactionService.confirmPayment(id, userId);
+            transactionService.confirmPayment(id, userId, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã xác nhận nhận tiền!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -138,10 +144,11 @@ public class AdminTransactionController {
     }
 
     @PostMapping("/{id}/participants/{userId}/reject")
-    public String rejectPayment(@PathVariable Long id, @PathVariable Long userId,
+    public String rejectPayment(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                @PathVariable Long id, @PathVariable Long userId,
                                 RedirectAttributes redirectAttributes) {
         try {
-            transactionService.rejectPayment(id, userId);
+            transactionService.rejectPayment(id, userId, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã từ chối. Thành viên sẽ phải chuyển lại.");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

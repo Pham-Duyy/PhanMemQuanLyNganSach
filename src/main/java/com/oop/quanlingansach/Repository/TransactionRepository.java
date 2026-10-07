@@ -9,17 +9,31 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Các truy vấn có tham số adminId: null = ban quản lý (mọi nhóm), có giá trị = chỉ nhóm của thủ quỹ đó.
+ */
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-
-    long countByType(String type);
 
     boolean existsByGroup_Id(Long groupId);
 
-    // Tổng chi thực tế của mọi nhóm (khoản chi đã hủy được hoàn lại quỹ nên không tính)
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.type = 'EXPENSE' AND t.status <> 'CANCELLED'")
-    BigDecimal sumAllExpenses();
+    // ==================== PHẠM VI QUẢN LÝ ====================
 
-    // Tổng chi thực tế của một nhóm
+    @Query("SELECT t FROM Transaction t WHERE (:adminId IS NULL OR t.group.adminId = :adminId) ORDER BY t.createdDate DESC")
+    List<Transaction> findManaged(@Param("adminId") Long adminId);
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE (:adminId IS NULL OR t.group.adminId = :adminId)")
+    long countManaged(@Param("adminId") Long adminId);
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.type = :type AND (:adminId IS NULL OR t.group.adminId = :adminId)")
+    long countManagedByType(@Param("adminId") Long adminId, @Param("type") String type);
+
+    // Tổng chi thực tế (khoản chi đã hủy được hoàn lại quỹ nên không tính)
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.type = 'EXPENSE' AND t.status <> 'CANCELLED' " +
+           "AND (:adminId IS NULL OR t.group.adminId = :adminId)")
+    BigDecimal sumManagedExpenses(@Param("adminId") Long adminId);
+
+    // ==================== THEO NHÓM ====================
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
            "WHERE t.group.id = :groupId AND t.type = 'EXPENSE' AND t.status <> 'CANCELLED'")
     BigDecimal sumExpenseByGroup(@Param("groupId") Long groupId);
@@ -33,6 +47,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t WHERE t.group.id = :groupId AND t.type = 'EXPENSE' AND t.status <> 'CANCELLED' " +
            "ORDER BY t.createdDate DESC")
     List<Transaction> findExpensesByGroup(@Param("groupId") Long groupId);
+
+    // ==================== PHÍA THÀNH VIÊN ====================
 
     // Khoản thu user còn phải đóng: được chọn đóng, chưa đóng, giao dịch còn mở
     @Query("SELECT tp.transaction FROM TransactionParticipant tp WHERE tp.user.id = :userId AND tp.paid = false " +

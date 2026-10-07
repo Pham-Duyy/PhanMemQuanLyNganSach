@@ -55,8 +55,8 @@ class AdminTransactionControllerTest {
 
     @Test
     void list_ShouldRender() throws Exception {
-        when(transactionService.findAll()).thenReturn(List.of(TestData.income(5L, group, "100000")));
-        when(groupService.findAll()).thenReturn(List.of(group));
+        when(transactionService.findManaged(any())).thenReturn(List.of(TestData.income(5L, group, "100000")));
+        when(groupService.findManaged(any(), any())).thenReturn(List.of(group));
 
         mockMvc.perform(get("/admin/finance/transactions").session(adminSession))
                 .andExpect(status().isOk())
@@ -67,11 +67,11 @@ class AdminTransactionControllerTest {
     void detail_ShouldCountPaidAndUnpaidParticipants() throws Exception {
         Transaction tx = TestData.income(5L, group, "100000");
         TransactionParticipant paid = new TransactionParticipant(tx, group.getMembers().get(0), new BigDecimal("100000"));
-        paid.confirmPaid();
+        paid.confirmPaid(TestData.admin());
         TransactionParticipant waiting = new TransactionParticipant(tx, group.getMembers().get(1), new BigDecimal("100000"));
-        waiting.reportPaid();
+        waiting.reportPaid("FT123");
         tx.setParticipants(List.of(paid, waiting));
-        when(transactionService.getById(5L)).thenReturn(tx);
+        when(transactionService.getManagedTransaction(eq(5L), any())).thenReturn(tx);
 
         mockMvc.perform(get("/admin/finance/transactions/detail/5").session(adminSession))
                 .andExpect(status().isOk())
@@ -84,7 +84,7 @@ class AdminTransactionControllerTest {
 
     @Test
     void detail_NotFound_ShouldGoBackToList() throws Exception {
-        when(transactionService.getById(99L)).thenThrow(new BusinessException("Giao dịch không tồn tại!"));
+        when(transactionService.getManagedTransaction(eq(99L), any())).thenThrow(new BusinessException("Giao dịch không tồn tại!"));
 
         mockMvc.perform(get("/admin/finance/transactions/detail/99").session(adminSession))
                 .andExpect(redirectedUrl("/admin/finance/transactions"))
@@ -121,7 +121,7 @@ class AdminTransactionControllerTest {
                         .param("amount", "150000").param("title", "Quỹ (sửa)"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(transactionService).update(eq(5L), argThat(form -> "Quỹ (sửa)".equals(form.getTitle())));
+        verify(transactionService).update(eq(5L), argThat(form -> "Quỹ (sửa)".equals(form.getTitle())), any());
     }
 
     @Test
@@ -130,12 +130,12 @@ class AdminTransactionControllerTest {
                 .andExpect(redirectedUrl("/admin/finance/transactions/detail/5"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(transactionService).confirmPayment(5L, 2L);
+        verify(transactionService).confirmPayment(eq(5L), eq(2L), any());
     }
 
     @Test
     void rejectParticipant_Error_ShouldShowMessage() throws Exception {
-        doThrow(new BusinessException("Thành viên này chưa báo chuyển tiền!")).when(transactionService).rejectPayment(5L, 2L);
+        doThrow(new BusinessException("Thành viên này chưa báo chuyển tiền!")).when(transactionService).rejectPayment(eq(5L), eq(2L), any());
 
         mockMvc.perform(post("/admin/finance/transactions/5/participants/2/reject").with(csrf()).session(adminSession))
                 .andExpect(redirectedUrl("/admin/finance/transactions/detail/5"))
@@ -148,12 +148,12 @@ class AdminTransactionControllerTest {
                 .andExpect(redirectedUrl("/admin/finance/transactions"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(transactionService).cancel(5L);
+        verify(transactionService).cancel(eq(5L), any());
     }
 
     @Test
     void delete_NotAllowed_ShouldShowMessage() throws Exception {
-        doThrow(new BusinessException("Giao dịch đã phát sinh tiền nên không thể xóa.")).when(transactionService).delete(5L);
+        doThrow(new BusinessException("Giao dịch đã phát sinh tiền nên không thể xóa.")).when(transactionService).delete(eq(5L), any());
 
         mockMvc.perform(post("/admin/finance/transactions/5/delete").with(csrf()).session(adminSession))
                 .andExpect(flash().attributeExists("error"));
@@ -164,7 +164,7 @@ class AdminTransactionControllerTest {
         mockMvc.perform(post("/admin/finance/transactions/5/delete").with(csrf()).session(adminSession))
                 .andExpect(redirectedUrl("/admin/finance/transactions"));
 
-        verify(transactionService).delete(5L);
+        verify(transactionService).delete(eq(5L), any());
     }
 
     @Test
@@ -178,7 +178,7 @@ class AdminTransactionControllerTest {
     @Test
     void groupMembersApi_ShouldNotExposePasswords() throws Exception {
         group.getMembers().get(0).setPassword("secret123");
-        when(groupService.getById(10L)).thenReturn(group);
+        when(groupService.getManagedGroup(eq(10L), any())).thenReturn(group);
 
         mockMvc.perform(get("/admin/finance/transactions/group/10/members").session(adminSession))
                 .andExpect(status().isOk())

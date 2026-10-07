@@ -7,6 +7,7 @@ import com.oop.quanlingansach.Model.User;
 import com.oop.quanlingansach.Repository.GroupRepository;
 import com.oop.quanlingansach.Repository.TransactionParticipantRepository;
 import com.oop.quanlingansach.Repository.TransactionRepository;
+import com.oop.quanlingansach.Repository.UserRepository;
 import com.oop.quanlingansach.TestData;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,9 @@ class GroupServiceImplTest {
     @Mock
     private TransactionParticipantRepository participantRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private GroupServiceImpl groupService;
 
@@ -57,7 +61,7 @@ class GroupServiceImplTest {
         form.setName("Nhóm mới");
         when(groupRepository.save(any(Group.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Group created = groupService.create(form, 1L);
+        Group created = groupService.create(form, TestData.admin());
 
         assertNull(created.getId());
         assertTrue(created.getMembers().isEmpty());
@@ -74,9 +78,9 @@ class GroupServiceImplTest {
         Group badType = TestData.group(1L);
         badType.setType("HACK");
 
-        assertThrows(BusinessException.class, () -> groupService.create(blankName, 1L));
-        assertThrows(BusinessException.class, () -> groupService.create(negativeFund, 1L));
-        assertThrows(BusinessException.class, () -> groupService.create(badType, 1L));
+        assertThrows(BusinessException.class, () -> groupService.create(blankName, TestData.admin()));
+        assertThrows(BusinessException.class, () -> groupService.create(negativeFund, TestData.admin()));
+        assertThrows(BusinessException.class, () -> groupService.create(badType, TestData.admin()));
         verify(groupRepository, never()).save(any());
     }
 
@@ -97,19 +101,102 @@ class GroupServiceImplTest {
         verify(participantRepository, never()).sumPaidAmountByGroup(any());
     }
 
-    @Test
-    void search_BlankKeyword_ShouldReturnAllGroups() {
-        when(groupRepository.findAll()).thenReturn(List.of(TestData.group(10L)));
+    // ===================== PHẠM VI QUẢN LÝ =====================
 
-        assertEquals(1, groupService.search("  ").size());
-        verify(groupRepository, never()).findByNameContainingIgnoreCase(any());
+    @Test
+    void findManaged_Treasurer_ShouldOnlyQueryOwnGroups() {
+        groupService.findManaged(TestData.admin(), "  ");
+
+        verify(groupRepository).findManaged(1L, null); // từ khóa trống = không lọc tên
+    }
+
+    @Test
+    void findManaged_SystemAdmin_ShouldQueryAllGroups() {
+        groupService.findManaged(TestData.systemAdmin(), " CLB ");
+
+        verify(groupRepository).findManaged(null, "CLB");
+    }
+
+    @Test
+    void getManagedGroup_OfAnotherTreasurer_ShouldFail() {
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L))); // của thủ quỹ id 1
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> groupService.getManagedGroup(10L, TestData.otherTreasurer()));
+        assertEquals("Bạn không quản lý nhóm này!", e.getMessage());
+        assertEquals(10L, groupService.getManagedGroup(10L, TestData.systemAdmin()).getId());
+    }
+
+    @Test
+    void delete_ByAnotherTreasurer_ShouldFail() {
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L)));
+
+        assertThrows(BusinessException.class, () -> groupService.delete(10L, TestData.otherTreasurer()));
+        verify(groupRepository, never()).deleteById(any());
+    }
+
+    // ===================== BÀN GIAO THỦ QUỸ =====================
+
+    @Test
+    void transferTreasurer_BySystemAdmin_ShouldChangeOwner() {
+        Group group = TestData.group(10L);
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
+        when(userRepository.findById(50L)).thenReturn(Optional.of(TestData.otherTreasurer()));
+
+        groupService.transferTreasurer(10L, 50L, TestData.systemAdmin());
+
+        assertEquals(50L, group.getAdminId());
+        verify(groupRepository).save(group);
+    }
+
+    @Test
+    void transferTreasurer_ByTreasurer_ShouldFail() {
+        assertThrows(BusinessException.class, () -> groupService.transferTreasurer(10L, 50L, TestData.admin()));
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void transferTreasurer_ToNormalOrLockedUser_ShouldFail() {
+        User locked = TestData.otherTreasurer();
+        locked.setActive(false);
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L)));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(TestData.member(2L)));
+        when(userRepository.findById(50L)).thenReturn(Optional.of(locked));
+
+        assertThrows(BusinessException.class, () -> groupService.transferTreasurer(10L, 2L, TestData.systemAdmin()));
+        assertThrows(BusinessException.class, () -> groupService.transferTreasurer(10L, 50L, TestData.systemAdmin()));
+        verify(groupRepository, never()).save(any());
+    }
+
+    // ===================== KIỂM TRA DỮ LIỆU =====================
+
+    @Test
+    void create_IncompleteOrInvalidBankAccount_ShouldFail() {
+        Group missingHolder = TestData.group(1L);
+        missingHolder.setBankAccountName(" ");
+        Group lettersInNumber = TestData.group(1L);
+        lettersInNumber.setBankAccountNumber("12AB5678");
+
+        assertThrows(BusinessException.class, () -> groupService.create(missingHolder, TestData.admin()));
+        assertThrows(BusinessException.class, () -> groupService.create(lettersInNumber, TestData.admin()));
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void create_BankAccountName_ShouldBeUppercased() {
+        Group form = TestData.group(1L);
+        form.setBankAccountName("Nguyen Van A");
+        when(groupRepository.save(any(Group.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("NGUYEN VAN A", groupService.create(form, TestData.admin()).getBankAccountName());
     }
 
     @Test
     void delete_GroupWithTransactions_ShouldFail() {
+        when(groupRepository.findById(10L)).thenReturn(Optional.of(TestData.group(10L)));
         when(transactionRepository.existsByGroup_Id(10L)).thenReturn(true);
 
-        assertThrows(BusinessException.class, () -> groupService.delete(10L));
+        assertThrows(BusinessException.class, () -> groupService.delete(10L, TestData.admin()));
         verify(groupRepository, never()).deleteById(any());
     }
 
@@ -122,7 +209,7 @@ class GroupServiceImplTest {
         Group form = TestData.group(10L);
         form.setFundAmount(new BigDecimal("900000"));
 
-        assertThrows(BusinessException.class, () -> groupService.update(10L, form));
+        assertThrows(BusinessException.class, () -> groupService.update(10L, form, TestData.admin()));
     }
 
     @Test
@@ -134,7 +221,7 @@ class GroupServiceImplTest {
         form.setName("Tên mới");
         form.setFundAmount(new BigDecimal("500000"));
 
-        groupService.update(10L, form);
+        groupService.update(10L, form, TestData.admin());
 
         assertEquals("Tên mới", group.getName());
     }
@@ -163,7 +250,7 @@ class GroupServiceImplTest {
         when(participantRepository.findByUser_IdAndPaidFalseAndTransaction_Group_IdAndTransaction_Status(2L, 10L, Transaction.STATUS_ACTIVE))
                 .thenReturn(List.of(due));
 
-        groupService.removeMember(10L, 2L);
+        groupService.removeMember(10L, 2L, TestData.admin());
 
         assertFalse(group.hasMember(2L));
         assertTrue(income.getParticipants().isEmpty());
@@ -175,12 +262,12 @@ class GroupServiceImplTest {
         Group group = TestData.group(10L, member);
         Transaction income = TestData.income(5L, group, "100000");
         TransactionParticipant due = new TransactionParticipant(income, member, income.getAmount());
-        due.reportPaid();
+        due.reportPaid("FT123");
         when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
         when(participantRepository.findByUser_IdAndPaidFalseAndTransaction_Group_IdAndTransaction_Status(2L, 10L, Transaction.STATUS_ACTIVE))
                 .thenReturn(List.of(due));
 
-        assertThrows(BusinessException.class, () -> groupService.removeMember(10L, 2L));
+        assertThrows(BusinessException.class, () -> groupService.removeMember(10L, 2L, TestData.admin()));
         assertTrue(group.hasMember(2L));
     }
 

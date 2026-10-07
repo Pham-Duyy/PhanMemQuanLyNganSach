@@ -17,7 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Admin quản lý nhóm: danh sách, tạo/sửa/xóa, mời và xóa thành viên.
+ * Quản lý nhóm: danh sách, tạo/sửa/xóa, mời và xóa thành viên, bàn giao thủ quỹ.
+ * Thủ quỹ chỉ thao tác được trên nhóm của mình; ban quản lý thao tác được mọi nhóm (kiểm tra ở service).
  */
 @Controller
 @RequestMapping("/admin/groups")
@@ -37,8 +38,9 @@ public class GroupAdminController {
 
     // Danh sách nhóm + modal tạo/sửa nhóm + modal mời thành viên
     @GetMapping
-    public String list(@RequestParam(required = false) String keyword, Model model) {
-        model.addAttribute("groups", groupService.search(keyword));
+    public String list(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                       @RequestParam(required = false) String keyword, Model model) {
+        model.addAttribute("groups", groupService.findManaged(currentUser, keyword));
         model.addAttribute("keyword", keyword);
         model.addAttribute("group", new Group());
         model.addAttribute("users", userService.findNormalUsers());
@@ -46,10 +48,11 @@ public class GroupAdminController {
     }
 
     @GetMapping("/{id}")
-    public String detail(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
+    public String detail(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
         Group group;
         try {
-            group = groupService.getById(id);
+            group = groupService.getManagedGroup(id, currentUser);
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return LIST_PAGE;
@@ -57,16 +60,21 @@ public class GroupAdminController {
         model.addAttribute("group", group);
         model.addAttribute("currentFund", groupService.getCurrentFund(group));
         model.addAttribute("availableUsers", inviteService.findInvitableUsers(id));
+        model.addAttribute("treasurer", userService.getById(group.getAdminId()));
+        if (currentUser.isSystemAdmin()) {
+            model.addAttribute("treasurers", userService.findActiveTreasurers());
+        }
         return "admin/groups/group-detail";
     }
 
     // Dữ liệu điền vào modal sửa nhóm (AJAX). Chỉ trả các trường của form.
     @GetMapping("/{id}/json")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> json(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> json(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                                    @PathVariable Long id) {
         Group group;
         try {
-            group = groupService.getById(id);
+            group = groupService.getManagedGroup(id, currentUser);
         } catch (BusinessException e) {
             return ResponseEntity.notFound().build();
         }
@@ -78,6 +86,9 @@ public class GroupAdminController {
         json.put("fundAmount", group.getFundAmount());
         json.put("targetAmount", group.getTargetAmount());
         json.put("active", group.isActive());
+        json.put("bankName", group.getBankName());
+        json.put("bankAccountNumber", group.getBankAccountNumber());
+        json.put("bankAccountName", group.getBankAccountName());
         return ResponseEntity.ok(json);
     }
 
@@ -86,7 +97,7 @@ public class GroupAdminController {
                          @ModelAttribute Group form,
                          RedirectAttributes redirectAttributes) {
         try {
-            groupService.create(form, currentUser.getId());
+            groupService.create(form, currentUser);
             redirectAttributes.addFlashAttribute("success", "Tạo nhóm thành công! Hãy gửi lời mời cho các thành viên.");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -95,9 +106,10 @@ public class GroupAdminController {
     }
 
     @PostMapping("/{id}/edit")
-    public String update(@PathVariable Long id, @ModelAttribute Group form, RedirectAttributes redirectAttributes) {
+    public String update(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, @ModelAttribute Group form, RedirectAttributes redirectAttributes) {
         try {
-            groupService.update(id, form);
+            groupService.update(id, form, currentUser);
             redirectAttributes.addFlashAttribute("success", "Cập nhật nhóm thành công!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -106,9 +118,10 @@ public class GroupAdminController {
     }
 
     @PostMapping("/{id}/delete")
-    public String delete(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    public String delete(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                         @PathVariable Long id, RedirectAttributes redirectAttributes) {
         try {
-            groupService.delete(id);
+            groupService.delete(id, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã xóa nhóm!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -116,27 +129,44 @@ public class GroupAdminController {
         return LIST_PAGE;
     }
 
+    // Ban quản lý bàn giao nhóm cho thủ quỹ khác
+    @PostMapping("/{id}/transfer")
+    public String transfer(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                           @PathVariable Long id, @RequestParam Long treasurerId,
+                           RedirectAttributes redirectAttributes) {
+        try {
+            groupService.transferTreasurer(id, treasurerId, currentUser);
+            redirectAttributes.addFlashAttribute("success", "Đã bàn giao nhóm cho thủ quỹ mới!");
+        } catch (BusinessException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/admin/groups/" + id;
+    }
+
     // Mời thành viên từ trang danh sách nhóm
     @PostMapping("/{groupId}/invite-user")
-    public String inviteFromList(@PathVariable Long groupId, @RequestParam Long userId,
+    public String inviteFromList(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                 @PathVariable Long groupId, @RequestParam Long userId,
                                  RedirectAttributes redirectAttributes) {
-        invite(groupId, userId, redirectAttributes);
+        invite(groupId, userId, currentUser, redirectAttributes);
         return LIST_PAGE;
     }
 
     // Mời thành viên từ trang chi tiết nhóm
     @PostMapping("/{groupId}/members/add")
-    public String inviteFromDetail(@PathVariable Long groupId, @RequestParam Long userId,
+    public String inviteFromDetail(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                                   @PathVariable Long groupId, @RequestParam Long userId,
                                    RedirectAttributes redirectAttributes) {
-        invite(groupId, userId, redirectAttributes);
+        invite(groupId, userId, currentUser, redirectAttributes);
         return "redirect:/admin/groups/" + groupId;
     }
 
     @PostMapping("/{groupId}/members/{userId}/remove")
-    public String removeMember(@PathVariable Long groupId, @PathVariable Long userId,
+    public String removeMember(@SessionAttribute(SessionKeys.CURRENT_USER) User currentUser,
+                               @PathVariable Long groupId, @PathVariable Long userId,
                                RedirectAttributes redirectAttributes) {
         try {
-            groupService.removeMember(groupId, userId);
+            groupService.removeMember(groupId, userId, currentUser);
             redirectAttributes.addFlashAttribute("success", "Đã xóa thành viên khỏi nhóm! Các khoản họ chưa đóng cũng được bỏ.");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -144,9 +174,9 @@ public class GroupAdminController {
         return "redirect:/admin/groups/" + groupId;
     }
 
-    private void invite(Long groupId, Long userId, RedirectAttributes redirectAttributes) {
+    private void invite(Long groupId, Long userId, User actor, RedirectAttributes redirectAttributes) {
         try {
-            User invited = inviteService.invite(groupId, userId);
+            User invited = inviteService.invite(groupId, userId, actor);
             redirectAttributes.addFlashAttribute("success", "Đã gửi lời mời tham gia nhóm cho " + invited.getFullName() + "!");
         } catch (BusinessException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

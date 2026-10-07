@@ -164,7 +164,7 @@ class AuthControllerTest {
                 .andExpect(content().string(containsString("Đổi mật khẩu")));
         mockMvc.perform(get("/auth/profile").session(TestData.sessionOf(TestData.admin())))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Quản trị viên")));
+                .andExpect(content().string(containsString("Thủ quỹ")));
     }
 
     @Test
