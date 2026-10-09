@@ -167,7 +167,7 @@
                         </h6>
                         <form th:action="@{'/user/groups/' + ${group.id} + '/leave'}" method="post"
                               th:attr="onsubmit='return confirm(\'Bạn chắc chắn muốn rời khỏi nhóm?\');'">
-                            <button type="submit" class="btn btn-custom btn-danger-custom">
+                            <button type="submit" class="btn btn-outline-danger">
                                 <i class="fas fa-sign-out-alt"></i> Rời khỏi nhóm
                             </button>
                         </form>

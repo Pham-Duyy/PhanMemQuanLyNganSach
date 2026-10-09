@@ -142,28 +142,19 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="d-flex flex-column">
-                                            <!-- Nút xem chi tiết -->
-                                            <a th:href="@{'/user/groups/' + ${group.id}}" class="btn btn-action btn-detail">
-                                                <i class="fas fa-eye me-1"></i>Xem chi tiết
-                                            </a>
+                                        <div class="row-actions">
+                                            <a th:href="@{'/user/groups/' + ${group.id}}" class="btn btn-sm btn-outline-secondary">Chi tiết</a>
                                             
                                             <!-- Nút rời khỏi nhóm (chỉ hiện với thành viên, không phải admin) -->
-                                            <div th:if="${group.adminId == null or group.adminId != currentUser.id}">
+                                            <th:block th:if="${group.adminId == null or group.adminId != currentUser.id}">
                                                 <form th:action="@{'/user/groups/' + ${group.id} + '/leave'}" method="post" 
                                                       th:attr="onsubmit='return confirm(\'Bạn chắc chắn muốn rời khỏi nhóm ' + ${group.name} + '?\');'">
-                                                    <button type="submit" class="btn btn-action btn-leave">
-                                                        <i class="fas fa-sign-out-alt me-1"></i>Rời nhóm
-                                                    </button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Rời nhóm</button>
                                                 </form>
-                                            </div>
+                                            </th:block>
                                             
-                                            <!-- Thông báo cho admin -->
-                                            <div th:if="${group.adminId != null and group.adminId == currentUser.id}">
-                                                <small class="text-muted text-center d-block mt-1">
-                                                    <i class="fas fa-shield-alt me-1"></i>Bạn là admin
-                                                </small>
-                                            </div>
+                                            <!-- Thông báo cho thủ quỹ của nhóm -->
+                                            <span th:if="${group.adminId != null and group.adminId == currentUser.id}" class="text-muted small"><i class="fas fa-shield-alt me-1" aria-hidden="true"></i>Bạn là thủ quỹ</span>
                                         </div>
                                     </td>
                                 </tr>

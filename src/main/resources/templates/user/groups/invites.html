@@ -78,16 +78,12 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div th:if="${invite.status == 'PENDING'}" class="d-flex flex-wrap gap-1">
-                                        <form th:action="@{'/user/groups/invites/' + ${invite.id} + '/accept'}" method="post" style="display:inline-block">
-                                            <button type="submit" class="btn btn-action btn-accept">
-                                                <i class="fas fa-check me-1"></i>Tham gia
-                                            </button>
+                                    <div th:if="${invite.status == 'PENDING'}" class="row-actions">
+                                        <form th:action="@{'/user/groups/invites/' + ${invite.id} + '/accept'}" method="post">
+                                            <button type="submit" class="btn btn-sm btn-primary">Tham gia</button>
                                         </form>
-                                        <form th:action="@{'/user/groups/invites/' + ${invite.id} + '/decline'}" method="post" style="display:inline-block">
-                                            <button type="submit" class="btn btn-action btn-decline">
-                                                <i class="fas fa-times me-1"></i>Từ chối
-                                            </button>
+                                        <form th:action="@{'/user/groups/invites/' + ${invite.id} + '/decline'}" method="post">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Từ chối</button>
                                         </form>
                                     </div>
                                     <span th:if="${invite.status != 'PENDING'}" class="text-muted small">
