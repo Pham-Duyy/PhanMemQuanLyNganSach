@@ -265,14 +265,42 @@ Với database mới tinh, cần cấp **Ban quản lý đầu tiên** bằng SQ
 UPDATE users SET role = 'SYSTEM_ADMIN' WHERE username = 'ten-dang-nhap';
 ```
 ### Bước 4: Chạy dự án:
+Dùng Maven Wrapper có sẵn trong dự án (không cần cài Maven), chạy ở thư mục gốc dự án:
 ```bash
-mvn spring-boot:run
+# Command Prompt (cmd)
+mvnw spring-boot:run
+
+# PowerShell / Terminal VS Code
+.\mvnw spring-boot:run
+
+# Git Bash / macOS / Linux
+./mvnw spring-boot:run
 ```
 ---
 ### Bước 5 : Truy cập trình duyệt:
 ```bash
  http://localhost:8080
 ```
+
+### Chạy thử không cần database Aiven
+Khi database cloud đang tắt hoặc chưa có mật khẩu, chạy với profile `dev`: dùng database H2 trong bộ nhớ và tự tạo dữ liệu mẫu (mất khi tắt app).
+```bash
+# Command Prompt (cmd)
+mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+
+# PowerShell / Terminal VS Code (tham số -D phải đặt trong dấu nháy)
+.\mvnw spring-boot:run "-Dspring-boot.run.profiles=dev"
+
+# Git Bash / macOS / Linux
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+Tài khoản mẫu, mật khẩu chung `123456`:
+
+| Tài khoản | Vai trò | Ô "Loại tài khoản" |
+|---|---|---|
+| `bql` | Ban quản lý | Quản trị viên |
+| `thuquy` | Thủ quỹ nhóm "Quỹ lớp OOP N04" | Quản trị viên |
+| `binh`, `chi`, `dung` | Thành viên | Người dùng |
 
 ## 10. Hạn chế & Định hướng phát triển
 ### Hạn chế

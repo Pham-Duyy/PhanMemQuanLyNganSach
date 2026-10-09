@@ -77,7 +77,8 @@
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
-			<scope>test</scope>
+			<!-- runtime: dùng cho chế độ chạy thử (profile dev) và test -->
+			<scope>runtime</scope>
 		</dependency>
 	</dependencies>
 
